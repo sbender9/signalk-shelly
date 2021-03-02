@@ -549,6 +549,10 @@ function boolValue (value: any) {
   return value === 1 || value === 'on' || value === 'true' || value === true
 }
 
+function boolString (value: any) {
+  return boolValue(value) ? 'on' : 'off'
+}
+
 function boolFrom (value: any) {
   return value === 'on' ? 1 : 0
 }
@@ -557,10 +561,9 @@ const rgbwPutPaths = [
   {
     deviceProp: 'switch',
     name: 'state',
-    convertFrom: boolFrom,
     setter: (device: any, value: any) => {
       return device.setColor({
-        turn: boolValue(value)
+        turn: boolString(value) 
       })
     },
     meta: {
@@ -642,10 +645,12 @@ const simpleRelayPutPaths = [
     setter: (device: any, value: any) => {
       return device.setRelay(0, boolValue(value))
     },
-    convertFrom: boolFrom,
-        meta: {
-          units: 'bool'
-        }
+    convertFrom: (value:any) => {
+      return value ? 1 : 0
+    },
+    meta: {
+      units: 'bool'
+    }
   }
 ]
 
