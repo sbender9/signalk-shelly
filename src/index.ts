@@ -26,7 +26,7 @@ export default function (app: any) {
   let props: any
   let enabledDevices: any = {}
   let onStop: any = []
-  let started = false
+  let startedOnce = false
   let stopped = true
 
   const plugin: Plugin = {
@@ -79,13 +79,10 @@ export default function (app: any) {
 
       stopped = false
 
-      if ( !started  ) {
+      if ( !startedOnce  ) {
         shellies.on('discover', onDiscover)
-        onStop.push(() => {
-          shellies.removeListener('discover', onDiscover)
-        })
-        
         shellies.start()
+        startedOnce = true
       }
       /*
       onStop.push(() => {
@@ -549,7 +546,7 @@ interface Plugin {
 }
 
 function boolValue (value: any) {
-  return value === 1 || value === 'on' || value === 'true' ? 'on' : 'off'
+  return value === 1 || value === 'on' || value === 'true' || value === true
 }
 
 function boolFrom (value: any) {
