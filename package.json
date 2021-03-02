@@ -8,7 +8,8 @@
     "build": "tsc",
     "watch": "npm run build -- -w",
     "create-release": "github-create-release --owner sbender9 --repository signalk-shelly",
-    "release": "git tag -d v$npm_package_version ; git tag v$npm_package_version && git push --tags && git push && npm run create-release"
+    "release": "git tag -d v$npm_package_version ; git tag v$npm_package_version && git push --tags && git push && npm run create-release",
+    "prepare": "npm run build"
   },
   "keywords": [
     "signalk-node-server-plugin"
