@@ -18,13 +18,6 @@ const path = require('path')
 const shellies = require('shellies')
 
 const deviceKey = (device: any) => `${device.type}-${device.id}`
-const hasAnyRelays = (device: any) => device.hasOwnProperty('relay0')
-const hasOneRelay = (device: any) =>
-  device.hasOwnProperty('relay0') && !hasMultipleRelays(device)
-const hasMultipleRelays = (device: any) => device.hasOwnProperty('relay1')
-const isRGBW = (device: any) =>
-  device.type === 'SHRGBW2' || device.type === 'SHRGBWW-01'
-const MAX_RELAYS = 10
 
 export default function (app: any) {
   const error = app.error
@@ -38,6 +31,7 @@ export default function (app: any) {
     start: function (properties: any) {
       props = properties
 
+      /*
       let tests = Object.keys(deviceTypes)
       //let tests = ['SHSW-44', 'SHRGBWW-01', 'SHSW-1']
       tests.forEach((type: any, idx: number) => {
@@ -56,13 +50,14 @@ export default function (app: any) {
           sendDeltas(device)
         }
       })
+      */
 
       let onDiscover = (device: any) => {
         debug(`discovered device ${device.id} ${device.type} @ ${device.host}`)
 
-        enabledDevices[deviceKey(device)] = device
-
         if (addDevice(device)) {
+          enabledDevices[deviceKey(device)] = device
+
           let onChange = (prop: any, newValue: any, oldValue: any) => {
             debug(
               `${device.id} ${prop} changed from ${oldValue} to ${newValue}`
@@ -353,6 +348,15 @@ export default function (app: any) {
             }
           })
         }
+        const powerKey = `power${i}`
+        if ( typeof device[powerKey] !== 'undefined') {
+          meta.push({
+            path: getSwitchPath(device, i, 'power'),
+            value: {
+              units: 'W'
+            }
+          })
+        }
       }
     }
 
@@ -373,6 +377,17 @@ export default function (app: any) {
             }
           })
         }
+      }
+    })
+
+    info.readPaths?.forEach((prop: any) => {
+      if ( prop.startsWith('power') ) {
+        meta.push({
+          path: `${devicePath}.${prop}`,
+          value: {
+            units: 'W'
+          }
+        })
       }
     })
 
