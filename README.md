@@ -1,6 +1,20 @@
 # signalk-shelly
 Signal K Plugin For Shelly devices
 
-Supports most of the devices listed here: https://github.com/alexryd/node-shellies
+## Suported Devices
+- Shelly 1
+- Shelly 1L
+- Shelly 1PM
+- Shelly 2
+- Shelly 2.5
+- Shelly 2LED
+- Shelly 4Pro
+- Shelly Bulb
+- Shelly Bulb RGBW
+- Shelly Color
+- Shelly HD
+- Shelly Plug
+- Shelly Plug S
+- Shelly Plug US
 
-Currently no support for RGB lights, probably other things missing. Please open issue if something isn't working for you. 
+Please open an issue if you need support for another device. I can add them quickly.
