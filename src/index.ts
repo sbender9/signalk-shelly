@@ -26,6 +26,8 @@ export default function (app: any) {
   let props: any
   let enabledDevices: any = {}
   let onStop: any = []
+  let started = false
+  let stopped = true
 
   const plugin: Plugin = {
     start: function (properties: any) {
@@ -59,42 +61,45 @@ export default function (app: any) {
           enabledDevices[deviceKey(device)] = device
 
           let onChange = (prop: any, newValue: any, oldValue: any) => {
-            debug(
-              `${device.id} ${prop} changed from ${oldValue} to ${newValue}`
-            )
-            sendDeltas(device)
+            if ( !stopped ) {
+              debug(
+                `${device.id} ${prop} changed from ${oldValue} to ${newValue}`
+              )
+              sendDeltas(device)
+            }
           }
 
           device.on('change', onChange)
-          onStop.push(() => {
-            device.removeListener('change', onChange)
-          })
 
-          /*
-          device.on('offline', (device: any) => {
-            debug(`device is offline ${device.id}`)
-          })
-          */
-          sendDeltas(device)
+          if ( !stopped ) {
+            sendDeltas(device)
+          }
         }
       }
 
-      shellies.on('discover', onDiscover)
-      onStop.push(() => {
-        shellies.removeListener('discover', onDiscover)
-      })
+      stopped = false
 
-      shellies.start()
+      if ( !started  ) {
+        shellies.on('discover', onDiscover)
+        onStop.push(() => {
+          shellies.removeListener('discover', onDiscover)
+        })
+        
+        shellies.start()
+      }
+      /*
       onStop.push(() => {
         shellies.stop()
-      })
+      })*/
+
     },
 
     stop: function () {
       sentMetaDevices = {}
       //enabledDevices = {}
-      //onStop.forEach((f:any) => f())
+      onStop.forEach((f:any) => f())
       onStop = []
+      stopped = true
     },
 
     id: 'signalk-shelly',
