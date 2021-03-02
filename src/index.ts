@@ -22,57 +22,84 @@ const hasAnyRelays = (device: any) => device.hasOwnProperty('relay0')
 const hasOneRelay = (device: any) =>
   device.hasOwnProperty('relay0') && !hasMultipleRelays(device)
 const hasMultipleRelays = (device: any) => device.hasOwnProperty('relay1')
+const isRGBW = (device: any) =>
+  device.type === 'SHRGBW2' || device.type === 'SHRGBWW-01'
 const MAX_RELAYS = 10
 
 export default function (app: any) {
   const error = app.error
   const debug = app.debug
   let sentMetaDevices: any = {}
-  let putsRegistred: any = {}
   let props: any
   let enabledDevices: any = {}
+  let onStop: any = []
 
   const plugin: Plugin = {
     start: function (properties: any) {
       props = properties
 
-      /*
-      deviceTypes.forEach((type, idx) => {
+      let tests = Object.keys(deviceTypes)
+      //let tests = ['SHSW-44', 'SHRGBWW-01', 'SHSW-1']
+      tests.forEach((type: any, idx: number) => {
+        let midx = type.indexOf(':')
+        let mode
+        if (midx !== -1) {
+          mode = type.slice(midx+1)
+          type = type.slice(0, midx)
+        }
         let device = shellies.createDevice(type, '1234' + idx, 'localhost')
+        if  ( mode ) {
+          device.mode = mode
+        }
         if (addDevice(device)) {
           enabledDevices[deviceKey(device)] = device
           sendDeltas(device)
         }
       })
-      */
 
-      shellies.on('discover', (device: any) => {
+      let onDiscover = (device: any) => {
         debug(`discovered device ${device.id} ${device.type} @ ${device.host}`)
 
-        sendDeltas(device)
-        if (addDevice(device)) {
-          enabledDevices[deviceKey(device)] = device
+        enabledDevices[deviceKey(device)] = device
 
-          device.on('change', (prop: any, newValue: any, oldValue: any) => {
+        if (addDevice(device)) {
+          let onChange = (prop: any, newValue: any, oldValue: any) => {
             debug(
               `${device.id} ${prop} changed from ${oldValue} to ${newValue}`
             )
             sendDeltas(device)
+          }
+
+          device.on('change', onChange)
+          onStop.push(() => {
+            device.removeListener('change', onChange)
           })
 
+          /*
           device.on('offline', (device: any) => {
             debug(`device is offline ${device.id}`)
           })
+          */
+          sendDeltas(device)
         }
+      }
+
+      shellies.on('discover', onDiscover)
+      onStop.push(() => {
+        shellies.removeListener('discover', onDiscover)
       })
 
       shellies.start()
+      onStop.push(() => {
+        shellies.stop()
+      })
     },
 
     stop: function () {
-      putsRegistred = {}
       sentMetaDevices = {}
-      enabledDevices = {}
+      //enabledDevices = {}
+      //onStop.forEach((f:any) => f())
+      onStop = []
     },
 
     id: 'signalk-shelly',
@@ -86,56 +113,52 @@ export default function (app: any) {
       }
 
       let devices = Object.values(enabledDevices)
-      //let devices = [...shellies]
 
-      devices
-        .filter((device: any) => hasAnyRelays(device))
-        .forEach((device: any) => {
-          let props: any = (schema.properties[
-            `Device ID ${deviceKey(device)}`
-          ] = {
-            type: 'object',
-            properties: {
-              deviceName: {
-                type: 'string',
-                title: 'Name',
-                default: `${device.modelName} ${device.name ?? ''}`,
-                readOnly: true
-              },
-              enabled: {
-                type: 'boolean',
-                title: 'Enabled',
-                default: true
-              }
-            }
-          })
-
-          if (hasMultipleRelays(device)) {
-            props.properties.bankPath = {
+      devices.forEach((device: any) => {
+        let props: any = (schema.properties[
+          `Device ID ${deviceKey(device)}`
+        ] = {
+          type: 'object',
+          properties: {
+            deviceName: {
               type: 'string',
-              title: 'Bank Path',
+              title: 'Name',
+              default: `${device.modelName} ${device.name ?? ''}`,
+              readOnly: true
+            },
+            enabled: {
+              type: 'boolean',
+              title: 'Enabled',
+              default: true
+            },
+            devicePath: {
+              type: 'string',
+              title: 'Device Path',
               default: device.name ?? deviceKey(device),
               description:
-                'Used to generate the path name, ie. electrical.switches.${bankPath}.0.state'
+                'Used to generate the path name, ie. electrical.switches.${devicePath}'
+            },
+            displayName: {
+              type: 'string',
+              title: 'Display Name (meta)'
             }
           }
+        })
 
-          for (let i = 0; i < MAX_RELAYS; i++) {
-            const key = `relay${i}`
-            if (!device.hasOwnProperty(key)) {
-              break
-            }
+        const info = getDeviceInfo(device)
+
+        if (!info) {
+          return
+        }
+
+        if (info.isSwitchBank) {
+          for (let i = 0; i < info.switchCount; i++) {
+            const key = `${info.switchKey}${i}`
             let defaultPath
             let description
-            if (hasMultipleRelays(device)) {
-              defaultPath = i.toString()
-              description =
-                'Used to generate the path name, ie electrical.switches.${bankPath}.${switchPath}.state'
-            } else {
-              defaultPath = device.name || deviceKey(device)
-              description =
-                'Used to generate the path name, ie electrical.switches.${switchPath}.state'
-            }
+            defaultPath = i.toString()
+            description =
+              'Used to generate the path name, ie electrical.switches.${bankPath}.${switchPath}.state'
 
             props.properties[key] = {
               type: 'object',
@@ -149,18 +172,17 @@ export default function (app: any) {
                 displayName: {
                   type: 'string',
                   title: 'Display Name (meta)'
+                },
+                enabled: {
+                  type: 'boolean',
+                  title: 'Enabled',
+                  default: true
                 }
               }
             }
-            if (hasMultipleRelays(device)) {
-              props.properties[key].properties.enabled = {
-                type: 'boolean',
-                title: 'Enabled',
-                default: true
-              }
-            }
           }
-        })
+        }
+      })
 
       return schema
     }
@@ -178,71 +200,80 @@ export default function (app: any) {
   }
 
   function addDevice (device: any) {
-    const deviceProps = getDeviceProps(device)
-    if (typeof deviceProps === 'undefined' || deviceProps.enabled) {
-      putProperties.forEach(prop => {
-        if (typeof device[prop] !== 'undefined') {
-          const path = getDevicePath(device, prop)
-          if (!putsRegistred[path]) {
-            const setter = 'set' + prop.charAt(0).toUpperCase() + prop.slice(1)
-            app.registerPutHandler(
-              'vessels.self',
-              path,
-              (context: string, path: string, value: any, cb: any) => {
-                return valueHandler(context, path, value, device, setter, cb)
-              }
-            )
-            putsRegistred[path] = true
-          }
-        }
-      })
+    const info = getDeviceInfo(device)
 
-      if (hasAnyRelays(device)) {
-        for (let i = 0; i < MAX_RELAYS; i++) {
-          const key = `relay${i}`
-          if (!device.hasOwnProperty(key)) {
-            break
-          }
-          const switchPath = getSwitchPath(device, i)
-          if (!putsRegistred[switchPath]) {
-            app.registerPutHandler(
-              'vessels.self',
-              switchPath,
-              (context: string, path: string, value: any, cb: any) => {
-                return switchHandler(context, path, value, device, i, cb)
-              }
+    if (!info) {
+      return false
+    }
+
+    const deviceProps = getDeviceProps(device)
+
+    if ( deviceProps?.enabled === false ) {
+      return
+    }
+    
+    if (info.isSwitchBank) {
+      for (let i = 0; i < info.switchCount; i++) {
+        const switchProps = getSwitchProps(device, i)
+
+        if ( switchProps?.enabled === false ) {
+          continue
+        }
+        
+        const path = getSwitchPath(device, i)
+
+        app.registerPutHandler(
+          'vessels.self',
+          path,
+          (context: string, path: string, value: any, cb: any) => {
+            return valueHandler(
+              context,
+              path,
+              value,
+              device,
+              (device: any, value: any) => {
+                return info.switchSetter(device, value, i)
+              },
+              cb
             )
-            putsRegistred[switchPath] = true
           }
+        )
+
+        if (info.isDimmable) {
+          const dimmerPath = getSwitchPath(device, i, 'dimmingLevel')
+
+          app.registerPutHandler(
+            'vessels.self',
+            dimmerPath,
+            (context: string, path: string, value: any, cb: any) => {
+              return valueHandler(
+                context,
+                path,
+                value,
+                device,
+                (device: any, value: any) => {
+                  return info.dimmerSetter(device, value, i)
+                },
+                cb
+              )
+            }
+          )
         }
       }
-      return true
     }
-  }
 
-  function switchHandler (
-    context: string,
-    path: string,
-    value: any,
-    device: any,
-    relay: number,
-    cb: any
-  ) {
-    const state = value === 1 || value === 'on' || value === 'true'
-    device
-      .setRelay(relay, state)
-      .then((res: any) => {
-        cb({
-          state: 'COMPLETED',
-          statusCode: 200
-        })
-      })
-      .catch((err: any) => {
-        error(err)
-        app.setPluginError(err.message)
-        cb({ state: 'COMPLETED', statusCode: 400, message: err.message })
-      })
-    return { state: 'PENDING' }
+    info.putPaths?.forEach((prop: any) => {
+      const path = `${getDevicePath(device)}.${prop.name || prop.deviceProp}`
+      app.registerPutHandler(
+        'vessels.self',
+        path,
+        (context: string, path: string, value: any, cb: any) => {
+          return valueHandler(context, path, value, device, prop.setter, cb)
+        }
+      )
+    })
+    
+    return true
   }
 
   function valueHandler (
@@ -250,18 +281,10 @@ export default function (app: any) {
     path: string,
     value: any,
     device: any,
-    setter: string,
+    func: any,
     cb: any
   ) {
-    const func = device[setter]
-    if (!func) {
-      return {
-        state: 'COMPLETED',
-        statusCode: 400,
-        message: `no setter: ${setter}`
-      }
-    }
-    func(value)
+    func(device, value)
       .then((status: any) => {
         cb({
           state: 'COMPLETED',
@@ -279,29 +302,79 @@ export default function (app: any) {
   function sendMeta (device: any) {
     let meta: any = []
 
-    if (hasAnyRelays(device)) {
-      for (let relay = 0; relay < MAX_RELAYS; relay++) {
-        const key = `relay${relay}`
-        if (!device.hasOwnProperty(key)) {
-          break
-        }
+    const info = getDeviceInfo(device)
+    const deviceProps = getDeviceProps(device)
+    const devicePath = getDevicePath(device)
 
-        const switchProps = getSwitchProps(device, relay)
+    if ( deviceProps?.enabled === false ) {
+      return
+    }
+
+    if (deviceProps?.displayName) {
+      meta.push({
+        path: devicePath,
+        value: {
+          displayName: deviceProps.displayName
+        }
+      })
+    }
+
+    if (info.isSwitchBank) {
+      for (let i = 0; i < info.switchCount; i++) {
+        const switchProps = getSwitchProps(device, i)
+
+        if ( switchProps?.enabled === false ) {
+          continue
+        }
+        
         meta.push({
-          path: getSwitchPath(device),
+          path: getSwitchPath(device, i),
           value: {
-            displayName: switchProps?.displayName,
-            units: 'bool'
-          }
-        })
-        meta.push({
-          path: getSwitchPath(device, 0, null),
-          value: {
+            units: 'bool',
             displayName: switchProps?.displayName
           }
         })
+        if (info.isDimmable) {
+          meta.push({
+            path: getSwitchPath(device, i, 'dimmingLevel'),
+            value: {
+              units: 'ratio',
+              displayName: switchProps?.displayName,
+              type: 'dimmer',
+              canDimWhenOff: info.canDimWhenOff
+            }
+          })
+        }
+        if (switchProps?.displayName) {
+          meta.push({
+            path: getSwitchPath(device, i, null),
+            value: {
+              displayName: switchProps?.displayName
+            }
+          })
+        }
       }
     }
+
+    info.putPaths?.forEach((prop: any) => {
+      if (deviceProps?.displayName || prop.meta) {
+        meta.push({
+          path: `${devicePath}.${prop.name || prop.deviceProp}`,
+          value: {
+            ...prop.meta,
+            displayName: deviceProps?.displayName
+          }
+        })
+        if (deviceProps?.displayName) {
+          meta.push({
+            path: devicePath,
+            value: {
+              displayName: deviceProps?.displayName
+            }
+          })
+        }
+      }
+    })
 
     if (meta.length) {
       debug('sending meta: %j', meta)
@@ -316,51 +389,76 @@ export default function (app: any) {
   }
 
   function sendDeltas (device: any) {
-    let values = []
+    let values: any = []
+
+    const deviceProps = getDeviceProps(device)
+    
+    if ( deviceProps?.enabled === false ) {
+      return
+    }
 
     if (!sentMetaDevices[deviceKey(device)]) {
       sendMeta(device)
       sentMetaDevices[deviceKey(device)] = true
     }
 
-    let addValue: any = (key: string, path: any = null, v: any = null) => {
-      const val = v !== null ? v : device[key]
-      if (typeof val !== 'undefined' && val !== null) {
-        values.push({
-          path: getDevicePath(device, path || key),
-          value: val
-        })
-      }
-    }
+    const info = getDeviceInfo(device)
 
-    readProps.forEach(prop => addValue(prop))
+    if (info.isSwitchBank) {
+      for (let i = 0; i < info.switchCount; i++) {
+        const switchProps = getSwitchProps(device, i)
 
-    if (hasAnyRelays(device)) {
-      for (let relay = 0; relay < MAX_RELAYS; relay++) {
-        const key = `relay${relay}`
-        if (!device.hasOwnProperty(key)) {
-          break
+        if ( switchProps?.enabled === false ) {
+          continue
         }
-
+        
+        const key = `${info.switchKey}${i}`
         values.push({
-          path: getSwitchPath(device, relay),
+          path: getSwitchPath(device, i),
           value: device[key] ? 1 : 0
         })
 
-        let addValue: any = (key: string, path: string, v: any) => {
-          const val = typeof v !== 'undefined' ? v : device[key]
-          if (typeof val !== 'undefined' && val !== null) {
-            values.push({
-              path: getSwitchPath(device, relay, path || key),
-              value: val
-            })
-          }
+        if (info.isDimmable) {
+          const dimmerKey = `brightness${i}`
+          values.push({
+            path: getSwitchPath(device, i, 'dimmingLevel'),
+            value: Number((device[dimmerKey] / 100).toFixed(2))
+          })
         }
-
-        addValue('input0')
-        addValue(`power${relay}`, 'power')
+        const powerKey = `power${i}`
+        if ( typeof device[powerKey] !== 'undefined') {
+          values.push({
+            path: getSwitchPath(device, i, 'power'),
+            value: device[powerKey]
+          })
+        }
       }
     }
+
+    info.putPaths?.forEach((prop: any) => {
+      const path = `${getDevicePath(device)}.${prop.name || prop.deviceProp}`
+      values.push({
+        path: path,
+        value: prop.convertFrom
+          ? prop.convertFrom(device[prop.deviceProp])
+          : device[prop.deviceProp]
+      })
+    })
+
+    info.readPaths?.forEach((info: any) => {
+      let path, key, converter
+      if (typeof info === 'string') {
+        path = key = info
+      } else {
+        key = info.key
+        path = info.path ? info.path : info.key
+        converter = info.converter
+      }
+      values.push({
+        path: `${getDevicePath(device)}.${path}`,
+        value: converter ? converter(device[key]) : device[key]
+      })
+    })
 
     if (values.length > 0) {
       app.handleMessage(plugin.id, {
@@ -377,37 +475,44 @@ export default function (app: any) {
     return props[`Device ID ${deviceKey(device)}`]
   }
 
-  function getSwitchProps (device: any, relay: number = 0) {
-    const devProps = getDeviceProps(device)
-    return devProps ? devProps[`relay${relay}`] : undefined
-  }
-
-  function getDevicePath (device: any, key: any = 'state') {
+  function getSwitchProps (device: any, relay: number) {
+    const info = getDeviceInfo(device)
     const devProps = getDeviceProps(device)
 
-    if (hasMultipleRelays(device)) {
-      return `electrical.switches.${devProps?.bankPath || deviceKey(device)}${
-        key ? '.' + key : ''
-      }`
+    if (info.isSwitchBank) {
+      return devProps ? devProps[`${info.switchKey}${relay}`] : undefined
     } else {
-      const switchProps = getSwitchProps(device, 0)
-      return `electrical.switches.${switchProps?.switchPath ||
-        deviceKey(device)}${key ? '.' + key : ''}`
+      return devProps
     }
   }
 
-  function getSwitchPath (device: any, relay: number = 0, key: any = 'state') {
+  function getSwitchPath (device: any, relay: any, key: any = 'state') {
+    const info = getDeviceInfo(device)
     const devProps = getDeviceProps(device)
     const switchProps = getSwitchProps(device, relay)
 
-    if (hasMultipleRelays(device)) {
-      return `electrical.switches.${devProps?.bankPath ||
-        deviceKey(device)}.${switchProps?.switchPath || relay.toString()}${
-        key ? '.' + key : ''
-      }`
+    let path = `electrical.switches.${devProps?.devicePath ||
+      deviceKey(device)}`
+    if (info.isSwitchBank) {
+      path = path + `.${switchProps?.switchPath || relay}`
+    }
+
+    return path + (key ? '.' + key : '')
+  }
+
+  function getDevicePath (device: any) {
+    const devProps = getDeviceProps(device)
+    return `electrical.switches.${devProps?.devicePath || deviceKey(device)}`
+  }
+
+  function getDeviceInfo (device: any) {
+    const modeKey = device.mode
+    let info
+
+    if (modeKey && deviceTypes[`${device.type}:${modeKey}`]) {
+      return deviceTypes[`${device.type}:${modeKey}`]
     } else {
-      return `electrical.switches.${switchProps?.switchPath ||
-        deviceKey(device)}${key ? '.' + key : ''}`
+      return deviceTypes[device.type]
     }
   }
 
@@ -423,60 +528,279 @@ interface Plugin {
   schema: any
 }
 
-const putProperties = [
-  'rollerState',
-  'rollerPosition'
+function boolValue (value: any) {
+  return value === 1 || value === 'on' || value === 'true' ? 'on' : 'off'
+}
+
+function boolFrom (value: any) {
+  return value === 'on' ? 1 : 0
+}
+
+const rgbwPutPaths = [
+  {
+    deviceProp: 'switch',
+    name: 'state',
+    convertFrom: boolFrom,
+    setter: (device: any, value: any) => {
+      return device.setColor({
+        turn: boolValue(value)
+      })
+    },
+    meta: {
+      units: 'bool'
+    }
+  },
+  {
+    deviceProp: 'gain',
+    name: 'dimmingLevel',
+    setter: (device: any, value: any) => {
+      return device.setColor({
+        gain: Number((value * 100).toFixed(0))
+      })
+    },
+    convertFrom: (value: any) => {
+      return Number((value / 100).toFixed(2))
+    },
+    meta: {
+      units: 'ratio',
+      type: 'dimmer',
+      canDimWhenOff: true
+    }
+  },
+  {
+    deviceProp: 'red',
+    setter: (device: any, value: any) => {
+      return device.setColor({
+        red: value
+      })
+    },
+    meta: {
+      units: 'rgbColor',
+    }
+  },
+  {
+    deviceProp: 'green',
+    setter: (device: any, value: any) => {
+      return device.setColor({
+        green: value
+      })
+    },
+    meta: {
+      units: 'rgbColor',
+    }
+  },
+  {
+    deviceProp: 'blue',
+    setter: (device: any, value: any) => {
+      return device.setColor({
+        blue: value
+      })
+    },
+    meta: {
+      units: 'rgbColor',
+    }
+  },
+  {
+    deviceProp: 'white',
+    setter: (device: any, value: any) => {
+      return device.setColor({
+        white: Number(value*255).toFixed(0)
+      })
+    },
+    convertFrom: (value: any) => {
+      return Number((value / 255).toFixed(2))
+    },
+    meta: {
+      units: 'ratio',
+      type: 'dimmer',
+      canDimWhenOff: true
+    }
+  },
 ]
 
-const readProps = [
-  ...putProperties,
-  'mode',
-  'rollerStopReason',
-  'externalTemperature0',
-  'externalTemperature1',
-  'externalTemperature2',
-  'externalHumidity',
-  'externalInput0'
+const simpleRelayPutPaths = [
+  {
+    deviceProp: 'relay0',
+    name: 'state',
+    setter: (device: any, value: any) => {
+      return device.setRelay(0, boolValue(value))
+    },
+    convertFrom: boolFrom,
+        meta: {
+          units: 'bool'
+        }
+  }
 ]
 
-const deviceTypes = [
-  'SHSW-1',
-  /*
-  'SHSW-L',
-  'SHSW-PM',
-  'SHSW-21',
-  'SHSW-25',
-  'SH2LED-1',
-  'SHEM-3',
-  'SHSW-44',
-  'SHAIR-1',
-  'SHCB-1',
-  'SHBLB-1',
-  'SHBTN-2',
-  'SHBTN-1',
-  'SHCL-255',
-  'SHDIMW-1',
-  'SHDM-1',
-  'SHDM-2',
-  'SHDW-1',
-  'SHDW-2',
-  'SHBDUO-1',
-  'SHEM',
-  'SHWT-1',
-  'SHGS-1',
-  'SHSW-22',
-  'SHHT-1',
-  'SHIX3-1',
-  'SHPLG2-1',
-  'SHPLG-S',
-  'SHPLG-U1',
-  'SHPLG-1',
-  'SHRGBWW-01',
-  'SHRGBW2',
-  'SHSEN-1',
-  'SHSM-01',
-  'SHSM-02',
-  'SHUNI-1',
-  'SHVIN-1'
-  */
+const simpleRelayReadPaths = [
+  'input0'
 ]
+
+const simpleRelay = {
+  putPaths: simpleRelayPutPaths,
+  readPaths: simpleRelayReadPaths
+}
+
+
+const deviceTypes: any = {
+  'SHSW-1': simpleRelay,
+  'SHRGBWW-01': {
+    hasRGBW: true,
+    putPaths: rgbwPutPaths
+  },
+  'SHRGBW2:white': {
+    isSwitchBank: true,
+    switchCount: 4,
+    switchKey: 'switch',
+    isDimmable: true,
+    canDimWhenOff: true,
+    switchSetter: (device: any, value: any, switchIdx: number) => {
+      return device.setWhite(
+        switchIdx,
+        undefined,
+        value === 1 || value === 'on' || value === 'true'
+      )
+    },
+    dimmerSetter: (device: any, value: any, switchIdx: number) => {
+      return device.setWhite(
+        switchIdx,
+        Number((value * 100).toFixed(0)),
+        device[`switch${switchIdx}`]
+      )
+    }
+  },
+  'SHRGBW2:color': {
+    hasRGBW: true,
+    putPaths: rgbwPutPaths,
+    readPaths: [
+      'mode',
+      'overPower',
+      'input0',
+      'power0',
+      'power1',
+      'power2',
+      'power3'
+    ]
+  },
+  'SHSW-44': {
+    isSwitchBank: true,
+    switchCount: 4,
+    switchKey: 'relay',
+    isDimmable: false,
+    switchSetter: (device: any, value: any, switchIdx: number) => {
+      return device.setRelay(switchIdx, boolValue(value))
+    }
+  },
+
+  'SHSW-L': {
+    putPaths: simpleRelayPutPaths,
+    readPaths: [
+      ...simpleRelayReadPaths,
+      'input1',
+      'power0',
+      'energyCounter0',
+      'deviceTemperature',
+      'overTemperature'
+    ]
+  },
+
+  'SHSW-PM': {
+    putPaths: simpleRelayPutPaths,
+    readPaths: [
+      ...simpleRelayReadPaths,
+      'power0',
+      'energyCounter0',
+      'overPower',
+      'overPowerValue',
+      'deviceTemperature',
+      'overTemperature'
+    ]
+  },
+
+  'SHSW-21:relay': {
+    isSwitchBank: true,
+    switchCount: 2,
+    switchKey: 'relay',
+    isDimmable: false,
+    switchSetter: (device: any, value: any, switchIdx: number) => {
+      return device.setRelay(switchIdx, boolValue(value))
+    },
+    readPaths: [
+      'mode',
+      'energyCounter0',
+      'overPower0',
+      'overPower1',
+      'overPowerValue'
+    ]
+  },
+  
+  'SHSW-21:roller': {
+    readPaths: [
+      'mode',
+      'power0',
+      'energyCounter0',
+      'overPower0',
+      'overPower1',
+      'overPowerValue'
+    ],
+    putPaths: [
+      {
+        deviceProp: 'rollerState',
+        setter: (device: any, value: any) => {
+          return device.setRollerState(value)
+        }
+      },
+      {
+        deviceProp: 'rollerPosition',
+        setter: (device: any, value: any) => {
+          return device.setRollerPosition(value)
+        }
+      }
+    ]
+  },
+
+  'SHSW-22': {
+    isSwitchBank: true,
+    switchCount: 2,
+    switchKey: 'relay',
+    isDimmable: false,
+    switchSetter: (device: any, value: any, switchIdx: number) => {
+      return device.setRelay(switchIdx, boolValue(value))
+    },
+  },
+
+  'SHPLG2-1': simpleRelay,
+  'SHPLG-S': simpleRelay,
+  'SHPLG-U1': simpleRelay,
+  
+  'SHPLG-1':  {
+    putPaths: simpleRelayPutPaths,
+    readPaths: [
+      ...simpleRelayReadPaths,
+      'power0',
+      'energyCounter0',
+      'overPower',
+      'overPowerValue'
+    ]
+  }
+}
+
+deviceTypes['SHSW-25:roller'] = { ...deviceTypes['SHSW-21:roller'] }
+deviceTypes['SHSW-25:roller'].readPaths.push('overTemperature')
+deviceTypes['SHSW-25:roller'].readPaths.push('deviceTemperature')
+deviceTypes['SHSW-25:relay'] = { ...deviceTypes['SHSW-21:relay'] }
+deviceTypes['SHSW-25:relay'].readPaths.push('overTemperature')
+deviceTypes['SHSW-25:relay'].readPaths.push('deviceTemperature')
+
+deviceTypes['SH2LED-1'] = { ...deviceTypes['SHRGBWW-01'] }
+deviceTypes['SH2LED-1'].switchCount = 2
+
+deviceTypes['SHBLB-1:color'] = { ...deviceTypes['SHRGBWW-01'] }
+deviceTypes['SHBLB-1:white'] = { ...deviceTypes['SHRGBW2:white'] }
+
+deviceTypes['SHCB-1:color'] = { ...deviceTypes['SHRGBWW-01'] }
+deviceTypes['SHCB-1:white'] = { ...deviceTypes['SHRGBW2:white'] }
+
+deviceTypes['SHCL-255:color'] = { ...deviceTypes['SHRGBWW-01'] }
+deviceTypes['SHCL-255:white'] = { ...deviceTypes['SHRGBW2:white'] }
+
