@@ -61,7 +61,7 @@ export default function (app: any) {
           enabledDevices[deviceKey(device)] = device
 
           let onChange = (prop: any, newValue: any, oldValue: any) => {
-            if ( !stopped ) {
+            if (!stopped) {
               debug(
                 `${device.id} ${prop} changed from ${oldValue} to ${newValue}`
               )
@@ -71,7 +71,7 @@ export default function (app: any) {
 
           device.on('change', onChange)
 
-          if ( !stopped ) {
+          if (!stopped) {
             sendDeltas(device)
           }
         }
@@ -79,7 +79,7 @@ export default function (app: any) {
 
       stopped = false
 
-      if ( !startedOnce  ) {
+      if (!startedOnce) {
         shellies.on('discover', onDiscover)
         shellies.start()
         startedOnce = true
@@ -88,13 +88,12 @@ export default function (app: any) {
       onStop.push(() => {
         shellies.stop()
       })*/
-
     },
 
     stop: function () {
       sentMetaDevices = {}
       //enabledDevices = {}
-      onStop.forEach((f:any) => f())
+      onStop.forEach((f: any) => f())
       onStop = []
       stopped = true
     },
@@ -205,18 +204,18 @@ export default function (app: any) {
 
     const deviceProps = getDeviceProps(device)
 
-    if ( deviceProps?.enabled === false ) {
+    if (deviceProps?.enabled === false) {
       return
     }
-    
+
     if (info.isSwitchBank) {
       for (let i = 0; i < info.switchCount; i++) {
         const switchProps = getSwitchProps(device, i)
 
-        if ( switchProps?.enabled === false ) {
+        if (switchProps?.enabled === false) {
           continue
         }
-        
+
         const path = getSwitchPath(device, i)
 
         app.registerPutHandler(
@@ -269,7 +268,7 @@ export default function (app: any) {
         }
       )
     })
-    
+
     return true
   }
 
@@ -303,7 +302,7 @@ export default function (app: any) {
     const deviceProps = getDeviceProps(device)
     const devicePath = getDevicePath(device)
 
-    if ( deviceProps?.enabled === false ) {
+    if (deviceProps?.enabled === false) {
       return
     }
 
@@ -320,10 +319,10 @@ export default function (app: any) {
       for (let i = 0; i < info.switchCount; i++) {
         const switchProps = getSwitchProps(device, i)
 
-        if ( switchProps?.enabled === false ) {
+        if (switchProps?.enabled === false) {
           continue
         }
-        
+
         meta.push({
           path: getSwitchPath(device, i),
           value: {
@@ -351,7 +350,7 @@ export default function (app: any) {
           })
         }
         const powerKey = `power${i}`
-        if ( typeof device[powerKey] !== 'undefined') {
+        if (typeof device[powerKey] !== 'undefined') {
           meta.push({
             path: getSwitchPath(device, i, 'power'),
             value: {
@@ -383,7 +382,7 @@ export default function (app: any) {
     })
 
     info.readPaths?.forEach((prop: any) => {
-      if ( prop.startsWith('power') ) {
+      if (prop.startsWith('power')) {
         meta.push({
           path: `${devicePath}.${prop}`,
           value: {
@@ -409,8 +408,8 @@ export default function (app: any) {
     let values: any = []
 
     const deviceProps = getDeviceProps(device)
-    
-    if ( deviceProps?.enabled === false ) {
+
+    if (deviceProps?.enabled === false) {
       return
     }
 
@@ -425,10 +424,10 @@ export default function (app: any) {
       for (let i = 0; i < info.switchCount; i++) {
         const switchProps = getSwitchProps(device, i)
 
-        if ( switchProps?.enabled === false ) {
+        if (switchProps?.enabled === false) {
           continue
         }
-        
+
         const key = `${info.switchKey}${i}`
         values.push({
           path: getSwitchPath(device, i),
@@ -443,7 +442,7 @@ export default function (app: any) {
           })
         }
         const powerKey = `power${i}`
-        if ( typeof device[powerKey] !== 'undefined') {
+        if (typeof device[powerKey] !== 'undefined') {
           values.push({
             path: getSwitchPath(device, i, 'power'),
             value: device[powerKey]
@@ -563,7 +562,7 @@ const rgbwPutPaths = [
     name: 'state',
     setter: (device: any, value: any) => {
       return device.setColor({
-        turn: boolString(value) 
+        turn: boolString(value)
       })
     },
     meta: {
@@ -595,7 +594,7 @@ const rgbwPutPaths = [
       })
     },
     meta: {
-      units: 'rgbColor',
+      units: 'rgbColor'
     }
   },
   {
@@ -606,7 +605,7 @@ const rgbwPutPaths = [
       })
     },
     meta: {
-      units: 'rgbColor',
+      units: 'rgbColor'
     }
   },
   {
@@ -617,14 +616,14 @@ const rgbwPutPaths = [
       })
     },
     meta: {
-      units: 'rgbColor',
+      units: 'rgbColor'
     }
   },
   {
     deviceProp: 'white',
     setter: (device: any, value: any) => {
       return device.setColor({
-        white: Number(value*255).toFixed(0)
+        white: Number(value * 255).toFixed(0)
       })
     },
     convertFrom: (value: any) => {
@@ -635,7 +634,7 @@ const rgbwPutPaths = [
       type: 'dimmer',
       canDimWhenOff: true
     }
-  },
+  }
 ]
 
 const simpleRelayPutPaths = [
@@ -645,7 +644,7 @@ const simpleRelayPutPaths = [
     setter: (device: any, value: any) => {
       return device.setRelay(0, boolValue(value))
     },
-    convertFrom: (value:any) => {
+    convertFrom: (value: any) => {
       return value ? 1 : 0
     },
     meta: {
@@ -654,15 +653,12 @@ const simpleRelayPutPaths = [
   }
 ]
 
-const simpleRelayReadPaths = [
-  'input0'
-]
+const simpleRelayReadPaths = ['input0']
 
 const simpleRelay = {
   putPaths: simpleRelayPutPaths,
   readPaths: simpleRelayReadPaths
 }
-
 
 const deviceTypes: any = {
   'SHSW-1': simpleRelay,
@@ -755,7 +751,7 @@ const deviceTypes: any = {
       'overPowerValue'
     ]
   },
-  
+
   'SHSW-21:roller': {
     readPaths: [
       'mode',
@@ -788,14 +784,14 @@ const deviceTypes: any = {
     isDimmable: false,
     switchSetter: (device: any, value: any, switchIdx: number) => {
       return device.setRelay(switchIdx, boolValue(value))
-    },
+    }
   },
 
   'SHPLG2-1': simpleRelay,
   'SHPLG-S': simpleRelay,
   'SHPLG-U1': simpleRelay,
-  
-  'SHPLG-1':  {
+
+  'SHPLG-1': {
     putPaths: simpleRelayPutPaths,
     readPaths: [
       ...simpleRelayReadPaths,
@@ -825,4 +821,3 @@ deviceTypes['SHCB-1:white'] = { ...deviceTypes['SHRGBW2:white'] }
 
 deviceTypes['SHCL-255:color'] = { ...deviceTypes['SHRGBWW-01'] }
 deviceTypes['SHCL-255:white'] = { ...deviceTypes['SHRGBW2:white'] }
-
