@@ -441,13 +441,11 @@ export default function (app: any) {
                     value: preset.name
                   }
                 }),
-                /*
                 {
                   title: 'Unknown',
                   value: 'Unknown',
                   enabled: false
                 }
-                */
               ],
               enum: [
                 ...deviceProps.presets.map((preset: any) => preset.name),
