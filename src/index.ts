@@ -178,6 +178,57 @@ export default function (app: any) {
             }
           }
         }
+
+        if (info.isRGBW) {
+          props.properties.presets = {
+            title: 'Presets',
+            type: 'array',
+            items: {
+              type: 'object',
+              required: [
+                'name',
+                'red',
+                'green',
+                'blue',
+                'white',
+                'bright'
+              ],
+              properties: {
+                name: {
+                  type: 'string',
+                  title: 'Name'
+                },
+                red: {
+                  type: 'number',
+                  title: 'Red',
+                  default: 255
+                },
+                green: {
+                  type: 'number',
+                  title: 'Green',
+                  default: 255
+                },
+                blue: {
+                  type: 'number',
+                  title: 'Blue',
+                  default: 255
+                },
+                white: {
+                  type: 'number',
+                  title: 'White',
+                  default: 255,
+                },
+                bright: {
+                  type: 'number',
+                  title: 'Brightness',
+                  description:
+                    'Number between 1-100. Set to 0 to preserve current brightness',
+                  default: 100
+                }
+              }
+            }
+          }
+        }
       })
 
       return schema
@@ -378,6 +429,31 @@ export default function (app: any) {
             }
           })
         }
+        if (deviceProps?.presets && deviceProps.presets.length > 0) {
+          meta.push({
+            path: `${devicePath}.preset`,
+            value: {
+              displayName: deviceProps?.displayName,
+              possibleValues: [
+                ...deviceProps.presets.map((preset: any) => {
+                  return {
+                    title: preset.name,
+                    value: preset.name
+                  }
+                }),
+                {
+                  title: 'Unknown',
+                  value: 'Unknown',
+                  enabled: false
+                }
+              ],
+              enum: [
+                ...deviceProps.presets.map((preset: any) => preset.name),
+                'Unknown'
+              ]
+            }
+          })
+        }
       }
     })
 
@@ -453,11 +529,17 @@ export default function (app: any) {
 
     info.putPaths?.forEach((prop: any) => {
       const path = `${getDevicePath(device)}.${prop.name || prop.deviceProp}`
-      values.push({
-        path: path,
-        value: prop.convertFrom
+      let value
+      if (!prop.deviceProp) {
+        value = prop.getter(device)
+      } else {
+        value = prop.convertFrom
           ? prop.convertFrom(device[prop.deviceProp])
           : device[prop.deviceProp]
+      }
+      values.push({
+        path,
+        value
       })
     })
 
@@ -532,6 +614,312 @@ export default function (app: any) {
     }
   }
 
+  const rgbwPutPaths = [
+    {
+      deviceProp: 'switch',
+      name: 'state',
+      setter: (device: any, value: any) => {
+        return device.setColor({
+          turn: boolString(value)
+        })
+      },
+      convertFrom: (value:any) => {
+        return value === true ? 1 : 0
+      },
+      meta: {
+        units: 'bool'
+      }
+    },
+    {
+      deviceProp: 'gain',
+      name: 'dimmingLevel',
+      setter: (device: any, value: any) => {
+        return device.setColor({
+          gain: Number((value * 100).toFixed(0))
+        })
+      },
+      convertFrom: (value: any) => {
+        return Number((value / 100).toFixed(2))
+      },
+      meta: {
+        units: 'ratio',
+        type: 'dimmer',
+        canDimWhenOff: true
+      }
+    },
+    {
+      deviceProp: 'red',
+      setter: (device: any, value: any) => {
+        return device.setColor({
+          red: value
+        })
+      },
+      meta: {
+        units: 'rgbColor'
+      }
+    },
+    {
+      deviceProp: 'green',
+      setter: (device: any, value: any) => {
+        return device.setColor({
+          green: value
+        })
+      },
+      meta: {
+        units: 'rgbColor'
+      }
+    },
+    {
+      deviceProp: 'blue',
+      setter: (device: any, value: any) => {
+        return device.setColor({
+          blue: value
+        })
+      },
+      meta: {
+        units: 'rgbColor'
+      }
+    },
+    {
+      deviceProp: 'white',
+      setter: (device: any, value: any) => {
+        return device.setColor({
+          white: Number(value * 255).toFixed(0)
+        })
+      },
+      convertFrom: (value: any) => {
+        return Number((value / 255).toFixed(2))
+      },
+      meta: {
+        units: 'ratio',
+        type: 'dimmer',
+        canDimWhenOff: true
+      }
+    },
+    {
+      name: 'preset',
+      getter: (device: any) => {
+        const deviceProps = getDeviceProps(device)
+        const preset = deviceProps?.presets.find((preset: any) => {
+          return (
+            device.red == preset.red &&
+              device.green == preset.green &&
+              device.blue == preset.blue &&
+              device.white == preset.white &&
+              (preset.bright === 0 || device.gain == preset.bright)
+          )
+        })
+        return preset?.name || 'Unknown'
+      },
+      setter: (device: any, value: any) => {
+        const deviceProps = getDeviceProps(device)
+        const preset = deviceProps?.presets.find(
+          (preset: any) => preset.name == value
+        )
+        if (value === 'Unknown' || !preset) {
+          throw new Error(`invalid value ${value}`)
+        } else {
+          const params: any = {
+            red: preset.red,
+            green: preset.green,
+            blue: preset.blue,
+            white: preset.white,
+            turn: 'on'
+          }
+          if (preset.bright !== 0) {
+            params.gain = preset.bright
+          }
+          return device.setColor(params)
+        }
+      }
+    }
+  ]
+
+  const simpleRelayPutPaths = [
+    {
+      deviceProp: 'relay0',
+      name: 'state',
+      setter: (device: any, value: any) => {
+        return device.setRelay(0, boolValue(value))
+      },
+      convertFrom: (value: any) => {
+        return value ? 1 : 0
+      },
+      meta: {
+        units: 'bool'
+      }
+    }
+  ]
+
+  const simpleRelayReadPaths = ['input0']
+
+  const simpleRelay = {
+    putPaths: simpleRelayPutPaths,
+    readPaths: simpleRelayReadPaths
+  }
+
+  const deviceTypes: any = {
+    'SHSW-1': simpleRelay,
+    'SHRGBWW-01': {
+      isRGBW: true,
+      putPaths: rgbwPutPaths
+    },
+    'SHRGBW2:white': {
+      isSwitchBank: true,
+      switchCount: 4,
+      switchKey: 'switch',
+      isDimmable: true,
+      canDimWhenOff: true,
+      switchSetter: (device: any, value: any, switchIdx: number) => {
+        return device.setWhite(
+          switchIdx,
+          undefined,
+          value === 1 || value === 'on' || value === 'true'
+        )
+      },
+      dimmerSetter: (device: any, value: any, switchIdx: number) => {
+        return device.setWhite(
+          switchIdx,
+          Number((value * 100).toFixed(0)),
+          device[`switch${switchIdx}`]
+        )
+      }
+    },
+    'SHRGBW2:color': {
+      isRGBW: true,
+      putPaths: rgbwPutPaths,
+      readPaths: [
+        'mode',
+        'overPower',
+        'input0',
+        'power0',
+        'power1',
+        'power2',
+        'power3'
+      ]
+    },
+    'SHSW-44': {
+      isSwitchBank: true,
+      switchCount: 4,
+      switchKey: 'relay',
+      isDimmable: false,
+      switchSetter: (device: any, value: any, switchIdx: number) => {
+        return device.setRelay(switchIdx, boolValue(value))
+      }
+    },
+
+    'SHSW-L': {
+      putPaths: simpleRelayPutPaths,
+      readPaths: [
+        ...simpleRelayReadPaths,
+        'input1',
+        'power0',
+        'energyCounter0',
+        'deviceTemperature',
+        'overTemperature'
+      ]
+    },
+
+    'SHSW-PM': {
+      putPaths: simpleRelayPutPaths,
+      readPaths: [
+        ...simpleRelayReadPaths,
+        'power0',
+        'energyCounter0',
+        'overPower',
+        'overPowerValue',
+        'deviceTemperature',
+        'overTemperature'
+      ]
+    },
+
+    'SHSW-21:relay': {
+      isSwitchBank: true,
+      switchCount: 2,
+      switchKey: 'relay',
+      isDimmable: false,
+      switchSetter: (device: any, value: any, switchIdx: number) => {
+        return device.setRelay(switchIdx, boolValue(value))
+      },
+      readPaths: [
+        'mode',
+        'energyCounter0',
+        'overPower0',
+        'overPower1',
+        'overPowerValue'
+      ]
+    },
+
+    'SHSW-21:roller': {
+      readPaths: [
+        'mode',
+        'power0',
+        'energyCounter0',
+        'overPower0',
+        'overPower1',
+        'overPowerValue'
+      ],
+      putPaths: [
+        {
+          deviceProp: 'rollerState',
+          setter: (device: any, value: any) => {
+            return device.setRollerState(value)
+          }
+        },
+        {
+          deviceProp: 'rollerPosition',
+          setter: (device: any, value: any) => {
+            return device.setRollerPosition(value)
+          }
+        }
+      ]
+    },
+
+    'SHSW-22': {
+      isSwitchBank: true,
+      switchCount: 2,
+      switchKey: 'relay',
+      isDimmable: false,
+      switchSetter: (device: any, value: any, switchIdx: number) => {
+        return device.setRelay(switchIdx, boolValue(value))
+      }
+    },
+
+    'SHPLG2-1': simpleRelay,
+    'SHPLG-S': simpleRelay,
+    'SHPLG-U1': simpleRelay,
+
+    'SHPLG-1': {
+      putPaths: simpleRelayPutPaths,
+      readPaths: [
+        ...simpleRelayReadPaths,
+        'power0',
+        'energyCounter0',
+        'overPower',
+        'overPowerValue'
+      ]
+    }
+  }
+
+  deviceTypes['SHSW-25:roller'] = { ...deviceTypes['SHSW-21:roller'] }
+  deviceTypes['SHSW-25:roller'].readPaths.push('overTemperature')
+  deviceTypes['SHSW-25:roller'].readPaths.push('deviceTemperature')
+  deviceTypes['SHSW-25:relay'] = { ...deviceTypes['SHSW-21:relay'] }
+  deviceTypes['SHSW-25:relay'].readPaths.push('overTemperature')
+  deviceTypes['SHSW-25:relay'].readPaths.push('deviceTemperature')
+
+  deviceTypes['SH2LED-1'] = { ...deviceTypes['SHRGBWW-01'] }
+  deviceTypes['SH2LED-1'].switchCount = 2
+
+  deviceTypes['SHBLB-1:color'] = { ...deviceTypes['SHRGBWW-01'] }
+  deviceTypes['SHBLB-1:white'] = { ...deviceTypes['SHRGBW2:white'] }
+
+  deviceTypes['SHCB-1:color'] = { ...deviceTypes['SHRGBWW-01'] }
+  deviceTypes['SHCB-1:white'] = { ...deviceTypes['SHRGBW2:white'] }
+
+  deviceTypes['SHCL-255:color'] = { ...deviceTypes['SHRGBWW-01'] }
+  deviceTypes['SHCL-255:white'] = { ...deviceTypes['SHRGBW2:white'] }
+
   return plugin
 }
 
@@ -555,269 +943,3 @@ function boolString (value: any) {
 function boolFrom (value: any) {
   return value === 'on' ? 1 : 0
 }
-
-const rgbwPutPaths = [
-  {
-    deviceProp: 'switch',
-    name: 'state',
-    setter: (device: any, value: any) => {
-      return device.setColor({
-        turn: boolString(value)
-      })
-    },
-    meta: {
-      units: 'bool'
-    }
-  },
-  {
-    deviceProp: 'gain',
-    name: 'dimmingLevel',
-    setter: (device: any, value: any) => {
-      return device.setColor({
-        gain: Number((value * 100).toFixed(0))
-      })
-    },
-    convertFrom: (value: any) => {
-      return Number((value / 100).toFixed(2))
-    },
-    meta: {
-      units: 'ratio',
-      type: 'dimmer',
-      canDimWhenOff: true
-    }
-  },
-  {
-    deviceProp: 'red',
-    setter: (device: any, value: any) => {
-      return device.setColor({
-        red: value
-      })
-    },
-    meta: {
-      units: 'rgbColor'
-    }
-  },
-  {
-    deviceProp: 'green',
-    setter: (device: any, value: any) => {
-      return device.setColor({
-        green: value
-      })
-    },
-    meta: {
-      units: 'rgbColor'
-    }
-  },
-  {
-    deviceProp: 'blue',
-    setter: (device: any, value: any) => {
-      return device.setColor({
-        blue: value
-      })
-    },
-    meta: {
-      units: 'rgbColor'
-    }
-  },
-  {
-    deviceProp: 'white',
-    setter: (device: any, value: any) => {
-      return device.setColor({
-        white: Number(value * 255).toFixed(0)
-      })
-    },
-    convertFrom: (value: any) => {
-      return Number((value / 255).toFixed(2))
-    },
-    meta: {
-      units: 'ratio',
-      type: 'dimmer',
-      canDimWhenOff: true
-    }
-  }
-]
-
-const simpleRelayPutPaths = [
-  {
-    deviceProp: 'relay0',
-    name: 'state',
-    setter: (device: any, value: any) => {
-      return device.setRelay(0, boolValue(value))
-    },
-    convertFrom: (value: any) => {
-      return value ? 1 : 0
-    },
-    meta: {
-      units: 'bool'
-    }
-  }
-]
-
-const simpleRelayReadPaths = ['input0']
-
-const simpleRelay = {
-  putPaths: simpleRelayPutPaths,
-  readPaths: simpleRelayReadPaths
-}
-
-const deviceTypes: any = {
-  'SHSW-1': simpleRelay,
-  'SHRGBWW-01': {
-    hasRGBW: true,
-    putPaths: rgbwPutPaths
-  },
-  'SHRGBW2:white': {
-    isSwitchBank: true,
-    switchCount: 4,
-    switchKey: 'switch',
-    isDimmable: true,
-    canDimWhenOff: true,
-    switchSetter: (device: any, value: any, switchIdx: number) => {
-      return device.setWhite(
-        switchIdx,
-        undefined,
-        value === 1 || value === 'on' || value === 'true'
-      )
-    },
-    dimmerSetter: (device: any, value: any, switchIdx: number) => {
-      return device.setWhite(
-        switchIdx,
-        Number((value * 100).toFixed(0)),
-        device[`switch${switchIdx}`]
-      )
-    }
-  },
-  'SHRGBW2:color': {
-    hasRGBW: true,
-    putPaths: rgbwPutPaths,
-    readPaths: [
-      'mode',
-      'overPower',
-      'input0',
-      'power0',
-      'power1',
-      'power2',
-      'power3'
-    ]
-  },
-  'SHSW-44': {
-    isSwitchBank: true,
-    switchCount: 4,
-    switchKey: 'relay',
-    isDimmable: false,
-    switchSetter: (device: any, value: any, switchIdx: number) => {
-      return device.setRelay(switchIdx, boolValue(value))
-    }
-  },
-
-  'SHSW-L': {
-    putPaths: simpleRelayPutPaths,
-    readPaths: [
-      ...simpleRelayReadPaths,
-      'input1',
-      'power0',
-      'energyCounter0',
-      'deviceTemperature',
-      'overTemperature'
-    ]
-  },
-
-  'SHSW-PM': {
-    putPaths: simpleRelayPutPaths,
-    readPaths: [
-      ...simpleRelayReadPaths,
-      'power0',
-      'energyCounter0',
-      'overPower',
-      'overPowerValue',
-      'deviceTemperature',
-      'overTemperature'
-    ]
-  },
-
-  'SHSW-21:relay': {
-    isSwitchBank: true,
-    switchCount: 2,
-    switchKey: 'relay',
-    isDimmable: false,
-    switchSetter: (device: any, value: any, switchIdx: number) => {
-      return device.setRelay(switchIdx, boolValue(value))
-    },
-    readPaths: [
-      'mode',
-      'energyCounter0',
-      'overPower0',
-      'overPower1',
-      'overPowerValue'
-    ]
-  },
-
-  'SHSW-21:roller': {
-    readPaths: [
-      'mode',
-      'power0',
-      'energyCounter0',
-      'overPower0',
-      'overPower1',
-      'overPowerValue'
-    ],
-    putPaths: [
-      {
-        deviceProp: 'rollerState',
-        setter: (device: any, value: any) => {
-          return device.setRollerState(value)
-        }
-      },
-      {
-        deviceProp: 'rollerPosition',
-        setter: (device: any, value: any) => {
-          return device.setRollerPosition(value)
-        }
-      }
-    ]
-  },
-
-  'SHSW-22': {
-    isSwitchBank: true,
-    switchCount: 2,
-    switchKey: 'relay',
-    isDimmable: false,
-    switchSetter: (device: any, value: any, switchIdx: number) => {
-      return device.setRelay(switchIdx, boolValue(value))
-    }
-  },
-
-  'SHPLG2-1': simpleRelay,
-  'SHPLG-S': simpleRelay,
-  'SHPLG-U1': simpleRelay,
-
-  'SHPLG-1': {
-    putPaths: simpleRelayPutPaths,
-    readPaths: [
-      ...simpleRelayReadPaths,
-      'power0',
-      'energyCounter0',
-      'overPower',
-      'overPowerValue'
-    ]
-  }
-}
-
-deviceTypes['SHSW-25:roller'] = { ...deviceTypes['SHSW-21:roller'] }
-deviceTypes['SHSW-25:roller'].readPaths.push('overTemperature')
-deviceTypes['SHSW-25:roller'].readPaths.push('deviceTemperature')
-deviceTypes['SHSW-25:relay'] = { ...deviceTypes['SHSW-21:relay'] }
-deviceTypes['SHSW-25:relay'].readPaths.push('overTemperature')
-deviceTypes['SHSW-25:relay'].readPaths.push('deviceTemperature')
-
-deviceTypes['SH2LED-1'] = { ...deviceTypes['SHRGBWW-01'] }
-deviceTypes['SH2LED-1'].switchCount = 2
-
-deviceTypes['SHBLB-1:color'] = { ...deviceTypes['SHRGBWW-01'] }
-deviceTypes['SHBLB-1:white'] = { ...deviceTypes['SHRGBW2:white'] }
-
-deviceTypes['SHCB-1:color'] = { ...deviceTypes['SHRGBWW-01'] }
-deviceTypes['SHCB-1:white'] = { ...deviceTypes['SHRGBW2:white'] }
-
-deviceTypes['SHCL-255:color'] = { ...deviceTypes['SHRGBWW-01'] }
-deviceTypes['SHCL-255:white'] = { ...deviceTypes['SHRGBW2:white'] }
