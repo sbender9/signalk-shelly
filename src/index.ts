@@ -800,7 +800,7 @@ export default function (app: any) {
           converter: temperatureConverter,
         },
         {
-          key: 'externalTemperature1',
+          key: 'externalTemperature2',
           converter: temperatureConverter,
         },
       ]
