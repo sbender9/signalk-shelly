@@ -33,9 +33,8 @@ export default function (app: any) {
     start: function (properties: any) {
       props = properties
 
-      /*
-      let tests = Object.keys(deviceTypes)
-      //let tests = ['SHSW-44', 'SHRGBWW-01', 'SHSW-1']
+      //let tests = Object.keys(deviceTypes)
+      let tests = ['SHSW-44', 'SHRGBWW-01', 'SHSW-1']
       tests.forEach((type: any, idx: number) => {
         let midx = type.indexOf(':')
         let mode
@@ -52,7 +51,6 @@ export default function (app: any) {
           sendDeltas(device)
         }
       })
-      */
 
       let onDiscover = (device: any) => {
         debug(`discovered device ${device.id} ${device.type} @ ${device.host}`)
@@ -105,7 +103,16 @@ export default function (app: any) {
     schema: () => {
       const schema: any = {
         type: 'object',
-        properties: {}
+        properties: {
+          tempUnits: {
+            type: 'string',
+            title: 'Temperature Units',
+            description: 'the untis the shelly devices send',
+            enum: [ 'F', 'C' ],
+            enumNames: [ 'Fahrenheit', 'Celcius' ],
+            default: 'F'
+          }
+        }
       }
 
       let devices = Object.values(enabledDevices)
@@ -458,11 +465,20 @@ export default function (app: any) {
     })
 
     info.readPaths?.forEach((prop: any) => {
-      if (prop.startsWith('power')) {
+      let key = typeof prop === 'string' ? prop : prop.key
+      if (key.startsWith('power')) {
         meta.push({
-          path: `${devicePath}.${prop}`,
+          path: `${devicePath}.${key}`,
           value: {
             units: 'W'
+          }
+        })
+      }
+      if (key.startsWith('externalTemperature')) {
+        meta.push({
+          path: `${devicePath}.${key}`,
+          value: {
+            units: 'K'
           }
         })
       }
@@ -552,10 +568,14 @@ export default function (app: any) {
         path = info.path ? info.path : info.key
         converter = info.converter
       }
-      values.push({
-        path: `${getDevicePath(device)}.${path}`,
-        value: converter ? converter(device[key]) : device[key]
-      })
+      let val = device[key]
+      if ( val != null )
+      {
+        values.push({
+          path: `${getDevicePath(device)}.${path}`,
+          value: converter ? converter(val) : val
+        })
+      }
     })
 
     if (values.length > 0) {
@@ -700,7 +720,7 @@ export default function (app: any) {
       name: 'preset',
       getter: (device: any) => {
         const deviceProps = getDeviceProps(device)
-        const preset = deviceProps?.presets.find((preset: any) => {
+        const preset = deviceProps?.presets?.find((preset: any) => {
           return (
             device.red == preset.red &&
               device.green == preset.green &&
@@ -758,8 +778,33 @@ export default function (app: any) {
     readPaths: simpleRelayReadPaths
   }
 
+  const temperatureConverter = (value:any) => {
+    if ( props?.tempUnits === 'C' ) {
+      return value + 273.15
+    } else {
+      return (value - 32) * 5/9 + 273.15
+    }
+  }
+
   const deviceTypes: any = {
-    'SHSW-1': simpleRelay,
+    'SHSW-1': {
+      putPaths: simpleRelayPutPaths,
+      readPaths: [
+        ...simpleRelayReadPaths,
+        {
+          key: 'externalTemperature0',
+          converter: temperatureConverter,
+        },
+        {
+          key: 'externalTemperature1',
+          converter: temperatureConverter,
+        },
+        {
+          key: 'externalTemperature1',
+          converter: temperatureConverter,
+        },
+      ]
+    },
     'SHRGBWW-01': {
       isRGBW: true,
       putPaths: rgbwPutPaths
