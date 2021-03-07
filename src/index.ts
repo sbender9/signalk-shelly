@@ -33,6 +33,7 @@ export default function (app: any) {
     start: function (properties: any) {
       props = properties
 
+      /*
       //let tests = Object.keys(deviceTypes)
       let tests = ['SHSW-44', 'SHRGBWW-01', 'SHSW-1']
       tests.forEach((type: any, idx: number) => {
@@ -51,6 +52,7 @@ export default function (app: any) {
           sendDeltas(device)
         }
       })
+      */
 
       let onDiscover = (device: any) => {
         debug(`discovered device ${device.id} ${device.type} @ ${device.host}`)
