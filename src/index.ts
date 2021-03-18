@@ -33,9 +33,9 @@ export default function (app: any) {
     start: function (properties: any) {
       props = properties
 
-      /*
       //let tests = Object.keys(deviceTypes)
-      let tests = ['SHSW-44', 'SHRGBWW-01', 'SHSW-1']
+      /*
+      let tests = [ 'SHUNI-1' ] // ['SHSW-44', 'SHRGBWW-01', 'SHSW-1']
       tests.forEach((type: any, idx: number) => {
         let midx = type.indexOf(':')
         let mode
@@ -449,16 +449,10 @@ export default function (app: any) {
                     title: preset.name,
                     value: preset.name
                   }
-                }),
-                {
-                  title: 'Unknown',
-                  value: 'Unknown',
-                  enabled: false
-                }
+                })
               ],
               enum: [
-                ...deviceProps.presets.map((preset: any) => preset.name),
-                'Unknown'
+                ...deviceProps.presets.map((preset: any) => preset.name)
               ]
             }
           })
@@ -821,7 +815,7 @@ export default function (app: any) {
         return device.setWhite(
           switchIdx,
           undefined,
-          value === 1 || value === 'on' || value === 'true'
+          value === 1 || value === 'on' || value === 'true' || value === true
         )
       },
       dimmerSetter: (device: any, value: any, switchIdx: number) => {
@@ -894,6 +888,31 @@ export default function (app: any) {
         'overPower0',
         'overPower1',
         'overPowerValue'
+      ]
+    },
+
+    'SHUNI-1': {
+      isSwitchBank: true,
+      switchCount: 2,
+      switchKey: 'relay',
+      isDimmable: false,
+      switchSetter: (device: any, value: any, switchIdx: number) => {
+        return device.setRelay(switchIdx, boolValue(value))
+      },
+      readPaths: [
+        'input0',
+        'inputEvent0',
+        'inputEventCounter0',
+        'input1',
+        'inputEvent1',
+        'inputEventCounter1',
+        'externalTemperature0',
+        'externalTemperature1',
+        'externalTemperature2',
+        'externalTemperature3',
+        'externalTemperature4',
+        'voltage0',
+        'externalHumidity'
       ]
     },
 
