@@ -16,5 +16,8 @@ Signal K Plugin For Shelly devices
 - Shelly Plug
 - Shelly Plug S
 - Shelly Plug US
-
+- Shelly Uni
+- Shelly EM
+- Shelly 3EM
+  
 Please open an issue if you need support for another device. I can add them quickly.
