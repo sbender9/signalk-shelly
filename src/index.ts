@@ -35,7 +35,7 @@ export default function (app: any) {
 
       //let tests = Object.keys(deviceTypes)
       /*
-      let tests = [ 'SHUNI-1' ] // ['SHSW-44', 'SHRGBWW-01', 'SHSW-1']
+      let tests = [ 'SHEM', 'SHEM-3' ] // ['SHSW-44', 'SHRGBWW-01', 'SHSW-1']
       tests.forEach((type: any, idx: number) => {
         let midx = type.indexOf(':')
         let mode
@@ -913,6 +913,58 @@ export default function (app: any) {
         'externalTemperature4',
         'voltage0',
         'externalHumidity'
+      ]
+    },
+
+    'SHEM': {
+      isSwitchBank: true,
+      switchCount: 1,
+      switchKey: 'relay',
+      isDimmable: false,
+      switchSetter: (device: any, value: any, switchIdx: number) => {
+        return device.setRelay(switchIdx, boolValue(value))
+      },
+      readPaths: [
+        'power0',
+        'energyCounter0',
+        'energyReturned0',
+        'voltage0',
+        'power1',
+        'energyCounter1',
+        'energyReturned1',
+        'voltage1',
+        'overPower'
+      ]
+    },
+
+    'SHEM-3': {
+      isSwitchBank: true,
+      switchCount: 1,
+      switchKey: 'relay',
+      isDimmable: false,
+      switchSetter: (device: any, value: any, switchIdx: number) => {
+        return device.setRelay(switchIdx, boolValue(value))
+      },
+      readPaths: [
+        'power0',
+        'energyCounter0',
+        'energyReturned0',
+        'powerFactor0',
+        'current0',
+        'voltage0',
+        'power1',
+        'energyCounter1',
+        'energyReturned1',
+        'powerFactor1',
+        'current1',
+        'voltage1',
+        'power2',
+        'energyCounter2',
+        'energyReturned2',
+        'powerFactor2',
+        'current2',
+        'voltage2',
+        'overPower'
       ]
     },
 
