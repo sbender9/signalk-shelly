@@ -110,8 +110,8 @@ export default function (app: any) {
             type: 'string',
             title: 'Temperature Units',
             description: 'the untis the shelly devices send',
-            enum: [ 'F', 'C' ],
-            enumNames: [ 'Fahrenheit', 'Celcius' ],
+            enum: ['F', 'C'],
+            enumNames: ['Fahrenheit', 'Celcius'],
             default: 'F'
           }
         }
@@ -146,6 +146,14 @@ export default function (app: any) {
             displayName: {
               type: 'string',
               title: 'Display Name (meta)'
+            },
+            userName: {
+              type: 'string',
+              title: 'User Name'
+            },
+            password: {
+              type: 'string',
+              title: 'Password'
             }
           }
         })
@@ -194,14 +202,7 @@ export default function (app: any) {
             type: 'array',
             items: {
               type: 'object',
-              required: [
-                'name',
-                'red',
-                'green',
-                'blue',
-                'white',
-                'bright'
-              ],
+              required: ['name', 'red', 'green', 'blue', 'white', 'bright'],
               properties: {
                 name: {
                   type: 'string',
@@ -225,7 +226,7 @@ export default function (app: any) {
                 white: {
                   type: 'number',
                   title: 'White',
-                  default: 255,
+                  default: 255
                 },
                 bright: {
                   type: 'number',
@@ -241,6 +242,21 @@ export default function (app: any) {
       })
 
       return schema
+    },
+
+    uiSchema: () => {
+      const uiSchema: any = {}
+      let devices = Object.values(enabledDevices)
+
+      devices.forEach((device: any) => {
+        uiSchema[`Device ID ${deviceKey(device)}`] = {
+          password: {
+            'ui:widget': 'password'
+          }
+        }
+      })
+
+      return uiSchema
     }
   }
 
@@ -266,6 +282,10 @@ export default function (app: any) {
 
     if (deviceProps?.enabled === false) {
       return
+    }
+
+    if (deviceProps.userName && deviceProps.password) {
+      device.setAuthCredentials(deviceProps.userName, deviceProps.password)
     }
 
     if (info.isSwitchBank) {
@@ -451,9 +471,7 @@ export default function (app: any) {
                   }
                 })
               ],
-              enum: [
-                ...deviceProps.presets.map((preset: any) => preset.name)
-              ]
+              enum: [...deviceProps.presets.map((preset: any) => preset.name)]
             }
           })
         }
@@ -565,8 +583,7 @@ export default function (app: any) {
         converter = info.converter
       }
       let val = device[key]
-      if ( val != null )
-      {
+      if (val != null) {
         values.push({
           path: `${getDevicePath(device)}.${path}`,
           value: converter ? converter(val) : val
@@ -639,7 +656,7 @@ export default function (app: any) {
           turn: boolString(value)
         })
       },
-      convertFrom: (value:any) => {
+      convertFrom: (value: any) => {
         return value === true ? 1 : 0
       },
       meta: {
@@ -719,10 +736,10 @@ export default function (app: any) {
         const preset = deviceProps?.presets?.find((preset: any) => {
           return (
             device.red == preset.red &&
-              device.green == preset.green &&
-              device.blue == preset.blue &&
-              device.white == preset.white &&
-              (preset.bright === 0 || device.gain == preset.bright)
+            device.green == preset.green &&
+            device.blue == preset.blue &&
+            device.white == preset.white &&
+            (preset.bright === 0 || device.gain == preset.bright)
           )
         })
         return preset?.name || 'Unknown'
@@ -774,11 +791,11 @@ export default function (app: any) {
     readPaths: simpleRelayReadPaths
   }
 
-  const temperatureConverter = (value:any) => {
-    if ( props?.tempUnits === 'C' ) {
+  const temperatureConverter = (value: any) => {
+    if (props?.tempUnits === 'C') {
       return value + 273.15
     } else {
-      return (value - 32) * 5/9 + 273.15
+      return ((value - 32) * 5) / 9 + 273.15
     }
   }
 
@@ -789,16 +806,16 @@ export default function (app: any) {
         ...simpleRelayReadPaths,
         {
           key: 'externalTemperature0',
-          converter: temperatureConverter,
+          converter: temperatureConverter
         },
         {
           key: 'externalTemperature1',
-          converter: temperatureConverter,
+          converter: temperatureConverter
         },
         {
           key: 'externalTemperature2',
-          converter: temperatureConverter,
-        },
+          converter: temperatureConverter
+        }
       ]
     },
     'SHRGBWW-01': {
@@ -916,7 +933,7 @@ export default function (app: any) {
       ]
     },
 
-    'SHEM': {
+    SHEM: {
       isSwitchBank: true,
       switchCount: 1,
       switchKey: 'relay',
@@ -1048,6 +1065,7 @@ interface Plugin {
   name: string
   description: string
   schema: any
+  uiSchema: any
 }
 
 function boolValue (value: any) {
