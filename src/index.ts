@@ -284,7 +284,7 @@ export default function (app: any) {
       return
     }
 
-    if (deviceProps.userName && deviceProps.password) {
+    if (deviceProps?.userName && deviceProps?.password) {
       device.setAuthCredentials(deviceProps.userName, deviceProps.password)
     }
 
