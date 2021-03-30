@@ -71,6 +71,14 @@ export default function (app: any) {
 
           device.on('change', onChange)
 
+          /*
+          device.on('offline', () => {
+            debug('device ' + device.id + ' went offline')
+            delete enabledDevices[deviceKey(device)]
+          })
+          */
+
+
           if (!stopped) {
             sendDeltas(device)
           }
@@ -87,7 +95,17 @@ export default function (app: any) {
       /*
       onStop.push(() => {
         shellies.stop()
-      })*/
+        })*/
+      /*
+      onStop.push(setInterval(() => {
+        Object.values(enabledDevices).forEach((device:any) => {
+          debug('device %s online %s (%d)', device.id, device.online, device.ttl)
+          if ( device.online ) {
+            sendDeltas(device)
+          }
+        })
+      }, 10000))
+      */
     },
 
     stop: function () {
@@ -407,7 +425,8 @@ export default function (app: any) {
           path: getSwitchPath(device, i),
           value: {
             units: 'bool',
-            displayName: switchProps?.displayName
+            displayName: switchProps?.displayName,
+            timeout: device.ttl / 1000
           }
         })
         if (info.isDimmable) {
@@ -442,6 +461,12 @@ export default function (app: any) {
     }
 
     info.putPaths?.forEach((prop: any) => {
+      meta.push({
+        path: `${devicePath}.${prop.name || prop.deviceProp}`,
+        value: {
+          timeout: device.ttl / 1000
+        }
+      })
       if (deviceProps?.displayName || prop.meta) {
         meta.push({
           path: `${devicePath}.${prop.name || prop.deviceProp}`,
@@ -480,6 +505,12 @@ export default function (app: any) {
 
     info.readPaths?.forEach((prop: any) => {
       let key = typeof prop === 'string' ? prop : prop.key
+      meta.push({
+        path: `${devicePath}.${key}`,
+        value: {
+          timeout: device.ttl / 1000
+        }
+      })
       if (key.startsWith('power')) {
         meta.push({
           path: `${devicePath}.${key}`,
