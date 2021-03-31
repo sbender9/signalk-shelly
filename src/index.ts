@@ -719,7 +719,8 @@ export default function (app: any) {
         })
       },
       meta: {
-        units: 'rgbColor'
+        units: 'rgbColor',
+        range: [ 0, 255 ]
       }
     },
     {
@@ -730,7 +731,8 @@ export default function (app: any) {
         })
       },
       meta: {
-        units: 'rgbColor'
+        units: 'rgbColor',
+        range: [ 0, 255 ]
       }
     },
     {
@@ -741,23 +743,20 @@ export default function (app: any) {
         })
       },
       meta: {
-        units: 'rgbColor'
+        units: 'rgbColor',
+        range: [ 0, 255 ]
       }
     },
     {
       deviceProp: 'white',
       setter: (device: any, value: any) => {
         return device.setColor({
-          white: Number(value * 255).toFixed(0)
+          white: value
         })
       },
-      convertFrom: (value: any) => {
-        return Number((value / 255).toFixed(2))
-      },
       meta: {
-        units: 'ratio',
-        type: 'dimmer',
-        canDimWhenOff: true
+        units: 'rgbColor',
+        range: [ 0, 255 ]
       }
     },
     {
