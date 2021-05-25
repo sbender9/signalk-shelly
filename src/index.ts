@@ -953,11 +953,26 @@ export default function (app: any) {
         'input1',
         'inputEvent1',
         'inputEventCounter1',
-        'externalTemperature0',
-        'externalTemperature1',
-        'externalTemperature2',
-        'externalTemperature3',
-        'externalTemperature4',
+        {
+          key: 'externalTemperature0',
+          converter: temperatureConverter
+        },
+        {
+          key: 'externalTemperature1',
+          converter: temperatureConverter
+        },
+        {
+          key: 'externalTemperature2',
+          converter: temperatureConverter
+        },
+        {
+          key: 'externalTemperature3',
+          converter: temperatureConverter
+        },
+        {
+          key: 'externalTemperature4',
+          converter: temperatureConverter
+        },
         'voltage0',
         'externalHumidity'
       ]
