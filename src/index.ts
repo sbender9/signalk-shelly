@@ -595,7 +595,7 @@ export default function (app: any) {
         value = prop.getter(device)
       } else {
         value = prop.convertFrom
-          ? prop.convertFrom(device[prop.deviceProp])
+          ? prop.convertFrom(device[prop.deviceProp], device)
           : device[prop.deviceProp]
       }
       values.push({
@@ -695,15 +695,43 @@ export default function (app: any) {
       }
     },
     {
-      deviceProp: 'gain',
+      //deviceProp: 'gain',
       name: 'dimmingLevel',
       setter: (device: any, value: any) => {
+        if ( device.white > 0 ) {
+          let white = device.white / 255
+          let gain = device.gain /100
+
+          if ( white < gain ) {
+            white = white + value - gain
+          } else {
+            white = value
+            value = gain + value - white
+          }
+          if ( white <= 0 ) {
+            white = 0.01
+          }
+          device.setColor({
+            white: white * 255
+          })
+        }
+
+        if  ( value <= 0 ) {
+          value = 0.01
+        }
+        
         return device.setColor({
           gain: Number((value * 100).toFixed(0))
         })
       },
-      convertFrom: (value: any) => {
-        return Number((value / 100).toFixed(2))
+      getter: (device: any) => {
+        let value = device.gain / 100
+        if ( device.red === 0 && device.green === 0 && device.blue === 0 ) {
+          value = (device.white/255) * 100
+        } else if ( device.gain > 0 && device.white > 0 ) {
+          value = device.white > device.gain ? device.white / 255 : value
+        }
+        return Number(value.toFixed(2))
       },
       meta: {
         units: 'ratio',
@@ -978,6 +1006,17 @@ export default function (app: any) {
       ]
     },
 
+    'SHHT-1': {
+      readPaths: [
+        {
+          key: 'temperature',
+          converter: temperatureConverter
+        },
+        'humidity',
+        'battery'
+      ]
+    },
+    
     SHEM: {
       isSwitchBank: true,
       switchCount: 1,
