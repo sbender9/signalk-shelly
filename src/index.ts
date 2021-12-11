@@ -519,7 +519,7 @@ export default function (app: any) {
           }
         })
       }
-      if (key.startsWith('externalTemperature')) {
+      if (key.startsWith('externalTemperature') || key.startsWith('temperature') || key === 'deviceTemperature') {
         meta.push({
           path: `${devicePath}.${key}`,
           value: {
