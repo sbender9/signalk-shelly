@@ -857,6 +857,10 @@ export default function (app: any) {
     }
   }
 
+  const humidityConverter = (value: any) => {
+    return value / 100
+  }
+
   const deviceTypes: any = {
     'SHSW-1': {
       putPaths: simpleRelayPutPaths,
@@ -1002,7 +1006,13 @@ export default function (app: any) {
           converter: temperatureConverter
         },
         'voltage0',
-        'externalHumidity'
+        {
+          key: 'externalHumidity',
+          converter: humidityConverter,
+          meta: {
+            units: 'ratio',
+          }
+        }
       ]
     },
 
@@ -1012,7 +1022,13 @@ export default function (app: any) {
           key: 'temperature',
           converter: temperatureConverter
         },
-        'humidity',
+        {
+          key: 'humidity',
+          converter: humidityConverter,
+          meta: {
+            units: 'ratio',
+          }
+        },
         'battery'
       ]
     },
