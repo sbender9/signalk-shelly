@@ -19,5 +19,6 @@ Signal K Plugin For Shelly devices
 - Shelly Uni
 - Shelly EM
 - Shelly 3EM
+- Shelly RGBW2
   
 Please open an issue if you need support for another device. I can add them quickly.
