@@ -1,6 +1,6 @@
 {
   "name": "signalk-shelly",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "description": "Signal K Plugin For Shelly devices",
   "main": "index.js",
   "scripts": {
