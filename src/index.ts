@@ -23,9 +23,9 @@ import {
   MdnsDeviceDiscoverer,
   Shellies,
   ShellyPlus1,
-  CharacteristicValue
+  CharacteristicValue,
 } from 'shellies-ng';
-const shelliesNg = new Shellies();
+let shelliesNg
 
 const deviceKey = (device: any) => `${device.type || device.modelName}-${device.id}`
 
@@ -120,13 +120,27 @@ export default function (app: any) {
         shellies.on('discover', onDiscover)
         shellies.start()
 
+        shelliesNg = new Shellies({
+          deviceOptions: (deviceId: any) => {
+            if ( props.nextGenPassswords ) {
+              let dev = props.nextGenPassswords.find((dev: any) => {
+                return dev.id === deviceId
+              })
+              return { password: dev?.password }
+            } else {
+              return undefined
+            }
+          },
+          autoLoadStatus: true,
+          autoLoadConfig: false
+        });
         shelliesNg.on('add', onDiscover)
         shelliesNg.on('error', (deviceId: DeviceId, error: Error) => {
           app.error(error.message)
           app.error(error.stack)
           app.setPluginError(error.message)
         });
-        
+
         const discoverer = new MdnsDeviceDiscoverer();
         // register it
         shelliesNg.registerDiscoverer(discoverer);
@@ -207,14 +221,6 @@ export default function (app: any) {
             displayName: {
               type: 'string',
               title: 'Display Name (meta)'
-            },
-            userName: {
-              type: 'string',
-              title: 'User Name'
-            },
-            password: {
-              type: 'string',
-              title: 'Password'
             }
           }
         })
@@ -223,6 +229,17 @@ export default function (app: any) {
 
         if (!info) {
           return
+        }
+        
+        if ( !info.nextGen ) {
+          props.properties.userName = { 
+            type: 'string',
+            title: 'User Name'
+          },
+          props.properties.password = {
+            type: 'string',
+            title: 'Password'
+          }
         }
 
         if (info.isSwitchBank) {
@@ -302,6 +319,25 @@ export default function (app: any) {
         }
       })
 
+      schema.properties.nextGenPassswords = {
+        title: 'Next Gen Device Passwords',
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['id', 'password'],
+          properties: {
+            id: {
+              type: 'string',
+              title: 'Device Id'
+            },
+            password: {
+              type: 'string',
+              title: 'Password'
+            }
+          }
+        }
+      }
+
       return schema
     },
 
@@ -345,8 +381,8 @@ export default function (app: any) {
       return
     }
 
-    if (deviceProps?.userName && deviceProps?.password) {
-      device.setAuthCredentials(deviceProps.userName, deviceProps.password)
+    if (deviceProps?.userName && deviceProps?.password && !info.nextGen ) {
+      device.shelly.setAuth(deviceProps.password)
     }
 
     if (info.isSwitchBank) {
@@ -408,7 +444,7 @@ export default function (app: any) {
                 device[split[0]].on(`change:${attrName}`, (newValue: any) => {
                   if ( !stopped ) {
                     debug(
-                      `${device.id} ${key} changed to ${newValue}`
+                      `${device.id} ${key} changed to ${JSON.stringify(newValue)}`
                     )
                     sendDeltas(device)
                   }
@@ -1103,7 +1139,10 @@ export default function (app: any) {
       },
       {
         key: `${key}.source`,
-        path: 'source'
+        path: 'source',
+        meta: {
+          units: 'string'
+        }
       },
       {
         key: `${key}.apower`,
@@ -1169,7 +1208,8 @@ export default function (app: any) {
   }
 
   const deviceTypes: any = {
-    /* For testing bank stuff 
+    /* For testing bank stuff */
+    /*
     'Shelly Plus 1': {
       nextGen: true,
       isSwitchBank: true,
