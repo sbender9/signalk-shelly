@@ -20,5 +20,15 @@ Signal K Plugin For Shelly devices
 - Shelly EM
 - Shelly 3EM
 - Shelly RGBW2
+
+- Shelly Plus 1
+- Shelly Plus 1 PM
+- Shelly Plus 2 PM (No Cover Support)
+- Shelly Plus I4
+- Shelly Pro 1
+- Shelly Pro 1 PM
+- Shelly Pro 2
+- Shelly Pro 2 PM (No Cover Support)
+- Shelly Pro 4 PM
   
 Please open an issue if you need support for another device. I can add them quickly.
