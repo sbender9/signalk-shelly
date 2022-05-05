@@ -17,7 +17,17 @@ const camelCase = require('camelcase')
 const path = require('path')
 const shellies = require('shellies')
 
-const deviceKey = (device: any) => `${device.type}-${device.id}`
+import {
+  Device,
+  DeviceId,
+  MdnsDeviceDiscoverer,
+  Shellies,
+  ShellyPlus1,
+  CharacteristicValue
+} from 'shellies-ng';
+const shelliesNg = new Shellies();
+
+const deviceKey = (device: any) => `${device.type || device.modelName}-${device.id}`
 
 export default function (app: any) {
   const error = app.error
@@ -54,22 +64,30 @@ export default function (app: any) {
       })
       */
 
+      /*
+      let tdevice = {id: '12345', modelName: 'Shelly Plus 2 PM'}
+      addDevice(tdevice)
+      sendDeltas(tdevice)
+      */
+
       let onDiscover = (device: any) => {
-        debug(`discovered device ${device.id} ${device.type} @ ${device.host}`)
+        debug(`discovered device ${device.id} ${device.type || device.modelName} @ ${device.host}`)
 
         if (addDevice(device)) {
           enabledDevices[deviceKey(device)] = device
 
-          let onChange = (prop: any, newValue: any, oldValue: any) => {
-            if (!stopped) {
-              debug(
-                `${device.id} ${prop} changed from ${oldValue} to ${newValue}`
-              )
-              sendDeltas(device)
+          if ( device.type ) {
+            let onChange = (prop: any, newValue: any, oldValue: any) => {
+              if (!stopped) {
+                debug(
+                  `${device.id} ${prop} changed from ${oldValue} to ${newValue}`
+                )
+                sendDeltas(device)
+              }
             }
-          }
-
-          device.on('change', onChange)
+            
+            device.on('change', onChange)
+          } 
 
           /*
           device.on('offline', () => {
@@ -85,11 +103,36 @@ export default function (app: any) {
         }
       }
 
+      let onNgDiscover = (device: Device) => {
+        console.log(`${device.modelName} discovered`);
+        console.log(`ID: ${device.id}`);
+
+        let s = device['switch0']
+        console.log(s['output'])
+        if (device instanceof ShellyPlus1) {
+          const plus1 = device as ShellyPlus1;
+        }
+      }
+
       stopped = false
 
       if (!startedOnce) {
         shellies.on('discover', onDiscover)
         shellies.start()
+
+        shelliesNg.on('add', onDiscover)
+        shelliesNg.on('error', (deviceId: DeviceId, error: Error) => {
+          app.error(error.message)
+          app.error(error.stack)
+          app.setPluginError(error.message)
+        });
+        
+        const discoverer = new MdnsDeviceDiscoverer();
+        // register it
+        shelliesNg.registerDiscoverer(discoverer);
+        // start discovering devices
+        discoverer.start();
+        
         startedOnce = true
       }
       /*
@@ -333,6 +376,57 @@ export default function (app: any) {
           }
         )
 
+        if ( info.nextGen ) {
+          let attrName = `${info.switchKey}${i}`
+          device[attrName].on('change:output', (newValue) => {
+            if ( !stopped ) {
+              debug(
+                `${device.id} ${attrName} changed to ${newValue}`
+              )
+              sendDeltas(device)
+            }
+          })
+        }
+        
+        if ( info.bankReadPaths ) {
+          let readPaths = info.bankReadPaths(`${info.switchKey}${i}`)
+          readPaths?.forEach((prop: any) => {
+            let key, path
+      
+            if (typeof prop === 'string') {
+              path = key = info
+            } else {
+              key = prop.key
+              path = prop.path ? prop.path : prop.key
+            }
+            
+            let split = key.split('.')
+            let attrName = split[split.length-1]
+            
+            if ( split.length > 1 ) {
+              if ( device[split[0]] ) {
+                device[split[0]].on(`change:${attrName}`, (newValue: any) => {
+                  if ( !stopped ) {
+                    debug(
+                      `${device.id} ${key} changed to ${newValue}`
+                    )
+                    sendDeltas(device)
+                  }
+                })
+              }
+            } else {
+              device.on(`change:${attrName}`, (newValue: any) => {
+                if ( !stopped ) {
+                  debug(
+                    `${device.id} ${key} changed to ${newValue}`
+                  )
+                  sendDeltas(device)
+                }
+              })
+            }
+          })
+        }
+
         if (info.isDimmable) {
           const dimmerPath = getSwitchPath(device, i, 'dimmingLevel')
 
@@ -365,6 +459,54 @@ export default function (app: any) {
           return valueHandler(context, path, value, device, prop.setter, cb)
         }
       )
+      if ( info.nextGen ) {
+        device[prop.deviceProp].on('change:output', (newValue) => {
+          if ( !stopped ) {
+            debug(
+              `${device.id} ${prop.deviceProp} changed to ${newValue}`
+            )
+            sendDeltas(device)
+          }
+        })
+      }
+    })
+
+    info.readPaths?.forEach((prop: any) => {
+      if ( info.nextGen ) {
+        let key, path
+      
+        if (typeof prop === 'string') {
+          path = key = info
+        } else {
+          key = prop.key
+          path = prop.path ? prop.path : prop.key
+        }
+
+        let split = key.split('.')
+        let attrName = split[split.length-1]
+
+        if ( split.length > 1 ) {
+          if ( device[split[0]] ) {
+            device[split[0]].on(`change:${attrName}`, (newValue: any) => {
+              if ( !stopped ) {
+                debug(
+                  `${device.id} ${key} changed to ${newValue}`
+                )
+                sendDeltas(device)
+              }
+            })
+          }
+        } else {
+          device.on(`change:${attrName}`, (newValue: any) => {
+            if ( !stopped ) {
+              debug(
+                `${device.id} ${key} changed to ${newValue}`
+              )
+              sendDeltas(device)
+            }
+          })
+        }
+      }
     })
 
     return true
@@ -426,9 +568,20 @@ export default function (app: any) {
           value: {
             units: 'bool',
             displayName: switchProps?.displayName,
-            timeout: device.ttl / 1000
+            timeout: device.ttl ? (device.ttl / 1000) : undefined
           }
         })
+        if ( info.bankReadPaths ) {
+          let readPaths = info.bankReadPaths(`${info.switchKey}${i}`)
+          readPaths?.forEach((p: any) => {
+            if ( p.meta ) {
+              meta.push({
+                path: getSwitchPath(device, i, p.path),
+                value: p.meta
+              })
+            }
+          })
+        }
         if (info.isDimmable) {
           meta.push({
             path: getSwitchPath(device, i, 'dimmingLevel'),
@@ -461,12 +614,14 @@ export default function (app: any) {
     }
 
     info.putPaths?.forEach((prop: any) => {
-      meta.push({
-        path: `${devicePath}.${prop.name || prop.deviceProp}`,
-        value: {
-          timeout: device.ttl / 1000
-        }
-      })
+      if ( device.ttl ) {
+        meta.push({
+          path: `${devicePath}.${prop.name || prop.deviceProp}`,
+          value: {
+            timeout: device.ttl / 1000
+          }
+        })
+      }
       if (deviceProps?.displayName || prop.meta) {
         meta.push({
           path: `${devicePath}.${prop.name || prop.deviceProp}`,
@@ -504,16 +659,35 @@ export default function (app: any) {
     })
 
     info.readPaths?.forEach((prop: any) => {
-      let key = typeof prop === 'string' ? prop : prop.key
-      meta.push({
-        path: `${devicePath}.${key}`,
-        value: {
-          timeout: device.ttl / 1000
-        }
-      })
+      let key, path
+      
+      if (typeof prop === 'string') {
+        path = key = info
+      } else {
+        key = prop.key
+        path = prop.path ? prop.path : prop.key
+      }
+
+      let split = key.split('.')
+      key = split[split.length-1]
+      
+      if ( device.ttl ) {
+        meta.push({
+          path: `${devicePath}.${path}`,
+          value: {
+            timeout: device.ttl / 1000
+          }
+        })
+      }
+      if ( typeof prop !== 'string' && prop.meta) {
+        meta.push({
+          path: `${devicePath}.${path}`,
+          value: prop.meta
+        })
+      }
       if (key.startsWith('power')) {
         meta.push({
-          path: `${devicePath}.${key}`,
+          path: `${devicePath}.${path}`,
           value: {
             units: 'W'
           }
@@ -521,7 +695,7 @@ export default function (app: any) {
       }
       if (key.startsWith('externalTemperature') || key.startsWith('temperature') || key === 'deviceTemperature') {
         meta.push({
-          path: `${devicePath}.${key}`,
+          path: `${devicePath}.${path}`,
           value: {
             units: 'K'
           }
@@ -566,10 +740,45 @@ export default function (app: any) {
         }
 
         const key = `${info.switchKey}${i}`
+        const val = info.nextGen ? (device[key] ? device[key].output : null) : device[key]
         values.push({
           path: getSwitchPath(device, i),
-          value: device[key] ? 1 : 0
+          value: val ? 1 : 0
         })
+
+        if ( info.bankReadPaths ) {
+          let readPaths = info.bankReadPaths(`${info.switchKey}${i}`)
+          readPaths?.forEach((info: any) => {
+            let path, key, converter
+            if (typeof info === 'string') {
+              path = key = info
+            } else {
+              key = info.key
+              path = info.path ? info.path : info.key
+              converter = info.converter
+            }
+            let val
+            if ( key.indexOf('.') !== -1 ) {
+              let split =  key.split('.')
+              val = device
+              split.forEach((k: any) => {
+                if ( typeof val === 'undefined' ) {
+                  val = undefined
+                } else {
+                  val = val[k]
+                }
+              })
+            } else {
+              val = device[key]
+            }
+            if (val != null) {
+              values.push({
+                path: getSwitchPath(device, i, path),
+                value: converter ? converter(val) : val
+              })
+            }
+          })
+        }
 
         if (info.isDimmable) {
           const dimmerKey = `brightness${i}`
@@ -613,7 +822,20 @@ export default function (app: any) {
         path = info.path ? info.path : info.key
         converter = info.converter
       }
-      let val = device[key]
+      let val
+      if ( key.indexOf('.') !== -1 ) {
+        let split =  key.split('.')
+        val = device
+        split.forEach((k: any) => {
+          if ( typeof val === 'undefined' ) {
+            val = undefined
+          } else {
+            val = val[k]
+          }
+        })
+      } else {
+        val = device[key]
+      }
       if (val != null) {
         values.push({
           path: `${getDevicePath(device)}.${path}`,
@@ -674,7 +896,7 @@ export default function (app: any) {
     if (modeKey && deviceTypes[`${device.type}:${modeKey}`]) {
       return deviceTypes[`${device.type}:${modeKey}`]
     } else {
-      return deviceTypes[device.type]
+      return deviceTypes[device.type || device.modelName]
     }
   }
 
@@ -844,6 +1066,87 @@ export default function (app: any) {
 
   const simpleRelayReadPaths = ['input0']
 
+  const nextgenSwitchPutPaths = (key: any) => {
+    return [
+      {
+        deviceProp: key,
+        name: 'state',
+        setter: (device: any, value: any) => {
+          return device[key].set(boolValue(value))
+        },
+        convertFrom: (value: any) => {
+          return value.output ? 1 : 0
+        },
+        meta: {
+          units: 'bool'
+          }
+      }
+    ]
+  }
+
+  const nextgenSwitchReadPaths = (key: any) => {
+    return [
+      {
+        key: `${key}.voltage`,
+        path: 'voltage',
+        meta: {
+          units: 'V'
+        }
+      },
+      {
+        key: `${key}.temperature`,
+        path: 'temperature',
+        converter: nextgenTemperatureConverter,
+        meta: {
+          units: 'K'
+        }
+      },
+      {
+        key: `${key}.source`,
+        path: 'source'
+      },
+      {
+        key: `${key}.apower`,
+        path: 'apower',
+        meta: {
+          units: 'W'
+        }
+      },
+      {
+        key: `${key}.current`,
+        path: 'current',
+        meta: {
+          units: 'A'
+        }
+      },
+      {
+        key: `${key}.pf`,
+        path: 'powerFactor',
+        converter: (val:any) => {
+          return val * 1000
+        },
+        meta: {
+          units: 'W'
+        }
+      }
+    ]
+  }
+
+  const nextgenInputPaths = (key: any) => {
+    return [
+      {
+        key: `${key}.state`,
+        path: key,
+        converter: (value: any) => {
+          return value ? 1 : 0
+        },
+        meta: {
+          units: 'bool'
+        }
+      }
+    ]
+  }
+    
   const simpleRelay = {
     putPaths: simpleRelayPutPaths,
     readPaths: simpleRelayReadPaths
@@ -857,11 +1160,108 @@ export default function (app: any) {
     }
   }
 
+  const nextgenTemperatureConverter = (value: any) => {
+    return value?.tC + 273.15
+  }
+
   const humidityConverter = (value: any) => {
     return value / 100
   }
 
   const deviceTypes: any = {
+    /* For testing bank stuff 
+    'Shelly Plus 1': {
+      nextGen: true,
+      isSwitchBank: true,
+      switchCount: 1,
+      switchKey: 'switch',
+      isDimmable: false,
+      bankReadPaths: nextgenSwitchReadPaths,
+      switchSetter: (device: any, value: any, switchIdx: number) => {
+        return device[`switch${switchIdx}`].set(boolValue(value))
+      },
+      readPaths: [
+        ...nextgenInputPaths('input0')
+      ]
+    },
+    */
+    
+    'Shelly Plus 1': {
+      nextGen: true,
+      putPaths: nextgenSwitchPutPaths('switch0'),
+      readPaths: [
+        ...nextgenSwitchReadPaths('switch0'),
+        ...nextgenInputPaths('input0')
+      ]
+    },
+    'Shelly Plus 1 PM': {
+      nextGen: true,
+      putPaths: nextgenSwitchPutPaths('switch0'),
+      readPaths: [
+        ...nextgenSwitchReadPaths('switch0'),
+        ...nextgenInputPaths('input0')
+      ]
+    },
+    'Shelly Pro 1': {
+      nextGen: true,
+      putPaths: nextgenSwitchPutPaths('switch0'),
+      readPaths: [
+        ...nextgenSwitchReadPaths('switch0'),
+        ...nextgenInputPaths('input0'),
+        ...nextgenInputPaths('input1')
+      ]
+    },
+    'Shelly Pro 1 PM': {
+      nextGen: true,
+      putPaths: nextgenSwitchPutPaths('switch0'),
+      readPaths: [
+        ...nextgenSwitchReadPaths('switch0'),
+        ...nextgenInputPaths('input0'),
+        ...nextgenInputPaths('input1')
+      ]
+    },
+    'Shelly Plus 2 PM': {
+      nextGen: true,
+      isSwitchBank: true,
+      switchCount: 2,
+      switchKey: 'switch',
+      isDimmable: false,
+      bankReadPaths: nextgenSwitchReadPaths,
+      switchSetter: (device: any, value: any, switchIdx: number) => {
+        return device[`switch${switchIdx}`].set(boolValue(value))
+      },
+      readPaths: [
+        ...nextgenInputPaths('input0'),
+        ...nextgenInputPaths('input1')
+      ]
+    },
+    'Shelly Pro 4 PM': {
+      nextGen: true,
+      isSwitchBank: true,
+      switchCount: 4,
+      switchKey: 'switch',
+      isDimmable: false,
+      bankReadPaths: nextgenSwitchReadPaths,
+      switchSetter: (device: any, value: any, switchIdx: number) => {
+        return device[`switch${switchIdx}`].set(boolValue(value))
+      },
+      readPaths: [
+        ...nextgenInputPaths('input0'),
+        ...nextgenInputPaths('input1'),
+        ...nextgenInputPaths('input2'),
+        ...nextgenInputPaths('input3')
+      ]
+    },
+    'Shelly Plus I4': {
+      nextGen: true,
+      readPaths: [
+        ...nextgenInputPaths('input0'),
+        ...nextgenInputPaths('input1'),
+        ...nextgenInputPaths('input2'),
+        ...nextgenInputPaths('input3'),
+      ]
+    },
+    
     'SHSW-1': {
       putPaths: simpleRelayPutPaths,
       readPaths: [
@@ -1155,6 +1555,9 @@ export default function (app: any) {
   deviceTypes['SHCL-255:color'] = { ...deviceTypes['SHRGBWW-01'] }
   deviceTypes['SHCL-255:white'] = { ...deviceTypes['SHRGBW2:white'] }
 
+  deviceTypes['Shelly Pro 2'] = { ...deviceTypes['Shelly Plus 2 PM'] }
+  deviceTypes['Shelly Pro 2 PM'] = { ...deviceTypes['Shelly Plus 2 PM'] }
+  
   return plugin
 }
 
