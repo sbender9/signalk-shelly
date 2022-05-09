@@ -698,7 +698,7 @@ export default function (app: any) {
       let key, path
       
       if (typeof prop === 'string') {
-        path = key = info
+        path = key = prop
       } else {
         key = prop.key
         path = prop.path ? prop.path : prop.key
