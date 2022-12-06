@@ -274,6 +274,16 @@ export default function (app: any) {
           }
         }
 
+        if ( info.readPaths?.find((prop:any) => {
+          return typeof prop !== 'string' && prop.notification
+        }) ) {
+          props.properties.sendNotifications = { 
+            type: 'boolean',
+            title: 'Send Notifications',
+            default: true
+          }
+        }
+        
         if (info.isRGBW) {
           props.properties.presets = {
             title: 'Presets',
@@ -877,7 +887,7 @@ export default function (app: any) {
           path: `${getDevicePath(device)}.${path}`,
           value: converter ? converter(val) : val
         })
-        if ( info.notification ) {
+        if ( info.notification && (typeof deviceProps.sendNotifications === 'undefined' || deviceProps.sendNotifications) ) {
           let state, message
           if ( info.notification.handler(val) ) {
             state = 'alarm'
@@ -1200,6 +1210,7 @@ export default function (app: any) {
         meta: {
           units: 'bool'
         },
+        /*
         notification: {
           handler: (value) => {
             return value === true
@@ -1207,6 +1218,7 @@ export default function (app: any) {
           messageOn: 'flood sensor is on',
           messageOff: 'flood sensor is off'
         }
+        */
       }
     ]
   }
@@ -1614,7 +1626,16 @@ export default function (app: any) {
 
     'SHDW-2': {
       readPaths: [
-        'state',
+        {
+          key: 'state',
+          notification: {
+            handler: (value) => {
+              return value === 1
+            },
+            messageOn: 'is open',
+            messageOff: 'is closed'
+          }
+        },
         'vibration',
         'illuminance',
         'illuminanceLevel',
@@ -1630,7 +1651,16 @@ export default function (app: any) {
 
     'SHWT-1': {
       readPaths: [
-        'flood',
+        {
+          key: 'flood',
+          notification: {
+            handler: (value) => {
+              return value === 1
+            },
+            messageOn: 'flood sensor is on',
+            messageOff: 'flood sensor is off'
+          }
+        },
         'sensorError',
         'battery',
         'wakeupEvent',
@@ -1643,11 +1673,20 @@ export default function (app: any) {
 
     'SHMOS-01': {
       readPaths: [
-        'motion',
+        {
+          key: 'motion',
+          notification: {
+            handler: (value) => {
+              return value === 1
+            },
+            messageOn: 'motion detected',
+            messageOff: 'motion cleared'
+          }
+        },
         'vibration',
         'battery',
         'illuminance'
-      ]
+      ], 
     },
   }
 
