@@ -23,6 +23,8 @@ Signal K Plugin For Shelly devices
 - Shelly Door/Window
 - Shelly Door/Window 2
 - Shelly Flood
+- Shelly Motion
+- Shelly H&T
 
 - Shelly Plus 1
 - Shelly Plus 1 PM
