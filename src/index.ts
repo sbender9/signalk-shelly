@@ -877,6 +877,24 @@ export default function (app: any) {
           path: `${getDevicePath(device)}.${path}`,
           value: converter ? converter(val) : val
         })
+        if ( info.notification ) {
+          let state, message
+          if ( info.notification.handler(val) ) {
+            state = 'alarm'
+            message = info.notification.messageOn
+          } else {
+            state = 'normal'
+            message = info.notification.messageOff
+          }
+          values.push({
+            path: `notifications.${getDevicePath(device)}.${path}`,
+            value: {
+              state,
+              message: `${deviceProps?.devicePath || deviceKey(device)} ${message}`,
+              method: [ 'sound', 'visual']
+            }
+          })
+        }
       }
     })
 
@@ -1181,6 +1199,13 @@ export default function (app: any) {
         },
         meta: {
           units: 'bool'
+        },
+        notification: {
+          handler: (value) => {
+            return value === true
+            },
+          messageOn: 'flood sensor is on',
+          messageOff: 'flood sensor is off'
         }
       }
     ]
@@ -1232,7 +1257,7 @@ export default function (app: any) {
       readPaths: [
         ...nextgenSwitchReadPaths('switch0'),
         ...nextgenInputPaths('input0')
-      ]
+      ],
     },
     'Shelly Plus 1 PM': {
       nextGen: true,
