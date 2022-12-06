@@ -1688,6 +1688,28 @@ export default function (app: any) {
         'illuminance'
       ], 
     },
+
+    'SHMOS-02': {
+      readPaths: [
+        {
+          key: 'motion',
+          notification: {
+            handler: (value) => {
+              return value === 1
+            },
+            messageOn: 'motion detected',
+            messageOff: 'motion cleared'
+          }
+        },
+        'vibration',
+        'battery',
+        'illuminance',
+        {
+          key: 'temperature',
+          converter: temperatureConverter
+        },
+      ]
+    },
   }
 
   deviceTypes['SHSW-25:roller'] = { ...deviceTypes['SHSW-21:roller'] }
