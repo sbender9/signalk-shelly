@@ -20,6 +20,9 @@ Signal K Plugin For Shelly devices
 - Shelly EM
 - Shelly 3EM
 - Shelly RGBW2
+- Shelly Door/Window
+- Shelly Door/Window 2
+- Shelly Flood
 
 - Shelly Plus 1
 - Shelly Plus 1 PM

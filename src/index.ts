@@ -1573,7 +1573,57 @@ export default function (app: any) {
         'overPower',
         'overPowerValue'
       ]
-    }
+    },
+
+    'SHDW-1': {
+      readPaths: [
+        'state',
+        'vibration',
+        'illuminance',
+        'illuminanceLevel',
+        'sensorError',
+        'battery',
+        'wakeupEvent'
+      ]
+    },
+
+    'SHDW-2': {
+      readPaths: [
+        'state',
+        'vibration',
+        'illuminance',
+        'illuminanceLevel',
+        'sensorError',
+        'battery',
+        'wakeupEvent',
+        {
+          key: 'temperature',
+          converter: temperatureConverter
+        },
+      ]
+    },
+
+    'SHWT-1': {
+      readPaths: [
+        'flood',
+        'sensorError',
+        'battery',
+        'wakeupEvent',
+        {
+          key: 'temperature',
+          converter: temperatureConverter
+        },
+      ]
+    },
+
+    'SHMOS-01': {
+      readPaths: [
+        'motion',
+        'vibration',
+        'battery',
+        'illuminance'
+      ]
+    },
   }
 
   deviceTypes['SHSW-25:roller'] = { ...deviceTypes['SHSW-21:roller'] }
