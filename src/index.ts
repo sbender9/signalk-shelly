@@ -1627,7 +1627,16 @@ export default function (app: any) {
 
     'SHMOS-02': {
       readPaths: [
-        'motion',
+        {
+          key: 'motion',
+          notification: {
+            handler: (value) => {
+              return value === 1
+            },
+            messageOn: 'motion detected',
+            messageOff: 'motion cleared'
+          }
+        },
         'vibration',
         'battery',
         'illuminance',
