@@ -887,7 +887,7 @@ export default function (app: any) {
           path: `${getDevicePath(device)}.${path}`,
           value: converter ? converter(val) : val
         })
-        if ( info.notification && (typeof deviceProps.sendNotifications === 'undefined' || deviceProps.sendNotifications) ) {
+        if ( info.notification && (typeof deviceProps?.sendNotifications === 'undefined' || deviceProps?.sendNotifications) ) {
           let state, message
           if ( info.notification.handler(val) ) {
             state = 'alarm'
