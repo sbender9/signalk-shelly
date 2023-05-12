@@ -1338,6 +1338,13 @@ export default function (app: any) {
         ...nextgenInputPaths('input3'),
       ]
     },
+    'Shelly Plus Plug US': {
+      nextGen: true,
+      putPaths: nextgenSwitchPutPaths('switch0'),
+      readPaths: [
+        ...nextgenSwitchReadPaths('switch0')
+      ]
+    },
     
     'SHSW-1': {
       putPaths: simpleRelayPutPaths,

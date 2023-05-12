@@ -36,5 +36,6 @@ Signal K Plugin For Shelly devices
 - Shelly Pro 2
 - Shelly Pro 2 PM (No Cover Support)
 - Shelly Pro 4 PM
+- Shelly Plus Plug US
   
 Please open an issue if you need support for another device. I can add them quickly.
