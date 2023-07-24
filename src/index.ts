@@ -1013,7 +1013,7 @@ export default function (app: any) {
       getter: (device: any) => {
         let value = device.gain / 100
         if ( device.red === 0 && device.green === 0 && device.blue === 0 ) {
-          value = (device.white/255) * 100
+          value = device.white/255
         } else if ( device.gain > 0 && device.white > 0 ) {
           value = device.white > device.gain ? device.white / 255 : value
         }
