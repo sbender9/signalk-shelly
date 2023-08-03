@@ -103,17 +103,6 @@ export default function (app: any) {
         }
       }
 
-      let onNgDiscover = (device: Device) => {
-        console.log(`${device.modelName} discovered`);
-        console.log(`ID: ${device.id}`);
-
-        let s = device['switch0']
-        console.log(s['output'])
-        if (device instanceof ShellyPlus1) {
-          const plus1 = device as ShellyPlus1;
-        }
-      }
-
       stopped = false
 
       if (!startedOnce) {
@@ -148,6 +137,12 @@ export default function (app: any) {
         discoverer.start();
         
         startedOnce = true
+      } else {
+        let devices = Object.values(enabledDevices)
+
+        devices.forEach((device: any) => {
+          addDevice(device)
+        })
       }
       /*
       onStop.push(() => {
