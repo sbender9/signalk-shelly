@@ -144,20 +144,34 @@ export default function (app: any) {
           addDevice(device)
         })
       }
+
       /*
       onStop.push(() => {
         shellies.stop()
         })*/
-      /*
-      onStop.push(setInterval(() => {
+      
+      let interval = setInterval(() => {
         Object.values(enabledDevices).forEach((device:any) => {
-          debug('device %s online %s (%d)', device.id, device.online, device.ttl)
-          if ( device.online ) {
-            sendDeltas(device)
+          const info = getDeviceInfo(device)
+          if ( info.nextGen ) {
+            device.shelly.getDeviceInfo(true).then((info) => {
+              debug('ng device online %s, &j', device.id, info)
+              sendDeltas(device)
+            })
+              .catch(err => {
+                debug('ng device not online %s', device.id)
+              })
+          } else {
+            if ( info.nextGen || device.online ) {
+              debug('device online %s', device.id)
+              sendDeltas(device)
+            } else {
+              debug('device not online %s', device.id)
+            }
           }
         })
-      }, 10000))
-      */
+      }, 10000)
+      onStop.push(() => { clearInterval(interval) })
     },
 
     stop: function () {
