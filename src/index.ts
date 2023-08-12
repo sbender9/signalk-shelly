@@ -1253,6 +1253,10 @@ export default function (app: any) {
     return value / 100
   }
 
+  const nextgenHumidityConverter = (value: any) => {
+    return value?.rh / 100
+  }
+
   const deviceTypes: any = {
     /* For testing bank stuff */
     /*
@@ -1523,6 +1527,23 @@ export default function (app: any) {
           }
         },
         'battery'
+      ]
+    },
+
+    'Shelly Plus H&T': {
+      nextGen: true,
+      readPaths: [
+        {
+          key: 'temperature0',
+          converter: nextgenTemperatureConverter
+        },
+        {
+          key: 'humidity0',
+          converter: nextgenHumidityConverter,
+          meta: {
+            units: 'ratio',
+          }
+        }
       ]
     },
     
