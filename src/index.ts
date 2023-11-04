@@ -25,6 +25,9 @@ import {
   ShellyPlus1,
   CharacteristicValue,
 } from 'shellies-ng';
+
+import { MyDeviceDiscoverer } from './mdns'
+
 let shelliesNg
 
 const deviceKey = (device: any) => `${device.type || device.modelName}-${device.id}`
@@ -130,7 +133,13 @@ export default function (app: any) {
           app.setPluginError(error.message)
         });
 
-        const discoverer = new MdnsDeviceDiscoverer();
+        let discoverer
+
+        if ( props.useCustomDiscovery ) {
+          discoverer = new MyDeviceDiscoverer()
+        } else {
+          discoverer = new MdnsDeviceDiscoverer()
+        }
         // register it
         shelliesNg.registerDiscoverer(discoverer);
         // start discovering devices
@@ -197,6 +206,11 @@ export default function (app: any) {
             enum: ['F', 'C'],
             enumNames: ['Fahrenheit', 'Celcius'],
             default: 'F'
+          },
+          useCustomDiscovery: {
+            type: 'boolean',
+            title: 'Use Alternate Gen 2 Discovery (Experimental)',
+            default: false
           }
         }
       }
