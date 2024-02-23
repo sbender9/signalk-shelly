@@ -419,7 +419,7 @@ export default function (app: any) {
     }
 
     if (deviceProps?.userName && deviceProps?.password && !info.nextGen ) {
-      device.shelly.setAuth(deviceProps.password)
+      device.setAuthCredentials(device.userName, deviceProps.password)
     }
 
     if (info.isSwitchBank) {
