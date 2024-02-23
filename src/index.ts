@@ -936,6 +936,7 @@ export default function (app: any) {
     })
 
     if (values.length > 0) {
+      debug('sending deltas %j', values)
       app.handleMessage(plugin.id, {
         updates: [
           {
