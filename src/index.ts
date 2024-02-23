@@ -218,6 +218,8 @@ export default function (app: any) {
       let devices = Object.values(enabledDevices)
 
       devices.forEach((device: any) => {
+        debug(`adding Device ID ${deviceKey(device)} to schema`)
+        
         let props: any = (schema.properties[
           `Device ID ${deviceKey(device)}`
         ] = {
@@ -405,12 +407,14 @@ export default function (app: any) {
     const info = getDeviceInfo(device)
 
     if (!info) {
+      debug(`device not supported ${device.id} ${device.type || device.modelName}`)
       return false
     }
 
     const deviceProps = getDeviceProps(device)
 
     if (deviceProps?.enabled === false) {
+      debug(`device disabled ${device.id} ${device.type || device.modelName}`)
       return
     }
 
