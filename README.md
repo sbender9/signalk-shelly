@@ -1,6 +1,9 @@
 # signalk-shelly
 Signal K Plugin For Shelly devices
 
+Use this plugin for Gen 1 devices, for Gen 2+ devices, use https://github.com/sbender9/signalk-shelly2
+
+
 ## Suported Devices
 - Shelly 1
 - Shelly 1L
