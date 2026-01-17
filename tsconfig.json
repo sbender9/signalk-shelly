@@ -7,6 +7,9 @@
     "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "declarationMap": true,
+    "sourceMap": true
+
   }
 }

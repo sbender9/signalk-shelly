@@ -784,7 +784,8 @@ export default function (app: any) {
             meta
           }
         ]
-      })
+      }
+      )
     }
   }
 
@@ -1724,6 +1725,37 @@ export default function (app: any) {
           key: 'temperature',
           converter: temperatureConverter
         },
+      ]
+    },
+
+    'SHGS-1': {
+      readPaths: [
+        {
+          key: 'gas',
+          notification: {
+            handler: (value) => {
+              return value  !== 'none'
+            },
+            messageOn: 'gas sensor is on',
+            messageOff: 'gas sensor is off'
+          }
+        },
+        {
+          key: 'concentration',
+          meta: {
+            units: 'ppm'
+         }
+        },
+        {
+          key: 'sensorOperation',
+          notification: {
+            handler: (value) => {
+              return value  !== 'normal'
+            },
+            messageOn: 'gas sensor operation is not normal',
+            messageOff: 'gas sensor is normal'
+          }
+        }
       ]
     },
 
