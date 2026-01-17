@@ -29,6 +29,7 @@ Use this plugin for Gen 1 devices, for Gen 2+ devices, use https://github.com/sb
 - Shelly Motion
 - Shelly Motion 2 (pending release of a new shellies lib release)
 - Shelly H&T
+- Shelly Gas
 
 - Shelly Plus 1
 - Shelly Plus 1 PM
