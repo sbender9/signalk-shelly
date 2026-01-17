@@ -112,38 +112,40 @@ export default function (app: any) {
         shellies.on('discover', onDiscover)
         shellies.start()
 
-        shelliesNg = new Shellies({
-          deviceOptions: (deviceId: any) => {
-            if ( props.nextGenPassswords ) {
-              let dev = props.nextGenPassswords.find((dev: any) => {
-                return dev.id === deviceId
-              })
-              return { password: dev?.password }
-            } else {
-              return undefined
-            }
-          },
-          autoLoadStatus: true,
-          autoLoadConfig: false
-        });
-        shelliesNg.on('add', onDiscover)
-        shelliesNg.on('error', (deviceId: DeviceId, error: Error) => {
-          app.error(error.message)
-          app.error(error.stack)
-          app.setPluginError(error.message)
-        });
+        if ( props.enableGen2Support === undefined || props.enableGen2Support === true ) {
+          shelliesNg = new Shellies({
+            deviceOptions: (deviceId: any) => {
+              if (props.nextGenPassswords) {
+                let dev = props.nextGenPassswords.find((dev: any) => {
+                  return dev.id === deviceId
+                })
+                return { password: dev?.password }
+              } else {
+                return undefined
+              }
+            },
+            autoLoadStatus: true,
+            autoLoadConfig: false
+          });
+          shelliesNg.on('add', onDiscover)
+          shelliesNg.on('error', (deviceId: DeviceId, error: Error) => {
+            app.error(error.message)
+            app.error(error.stack)
+            app.setPluginError(error.message)
+          });
 
-        let discoverer
+          let discoverer
 
-        if ( props.useCustomDiscovery ) {
-          discoverer = new MyDeviceDiscoverer()
-        } else {
-          discoverer = new MdnsDeviceDiscoverer()
+          if (props.useCustomDiscovery) {
+            discoverer = new MyDeviceDiscoverer()
+          } else {
+            discoverer = new MdnsDeviceDiscoverer()
+          }
+          // register it
+          shelliesNg.registerDiscoverer(discoverer);
+          // start discovering devices
+          discoverer.start();
         }
-        // register it
-        shelliesNg.registerDiscoverer(discoverer);
-        // start discovering devices
-        discoverer.start();
         
         startedOnce = true
       } else {
@@ -207,6 +209,12 @@ export default function (app: any) {
             enumNames: ['Fahrenheit', 'Celcius'],
             default: 'F'
           },
+          enableGen2Support: {
+            type: 'boolean',
+            title: 'Enable Gen 2 Device Support',
+            description: 'You shuold use the signalk-shelly2 plugin for Shelly Gen 2+ devices',
+            default: true
+          },
           useCustomDiscovery: {
             type: 'boolean',
             title: 'Use Alternate Gen 2 Discovery (Experimental)',
@@ -252,7 +260,7 @@ export default function (app: any) {
 
         const info = getDeviceInfo(device)
 
-        if (!info) {
+        if (!info || (props.enableGen2Support === false && info.nextGen)) {
           return
         }
         
