@@ -1167,6 +1167,18 @@ export default function (app: any) {
 
   const simpleRelayReadPaths = ['input0']
 
+  const meteringPlugReadPaths = [
+    ...simpleRelayReadPaths,
+    'power0',
+    {
+      key: 'energyCounter0',
+      converter: (value: any) => value * 60,
+      meta: { units: 'J' }
+    },
+    'overPower',
+    'overPowerValue'
+  ]
+
   const nextgenSwitchPutPaths = (key: any) => {
     return [
       {
@@ -1662,19 +1674,29 @@ export default function (app: any) {
       }
     },
 
-    'SHPLG2-1': simpleRelay,
-    'SHPLG-S': simpleRelay,
-    'SHPLG-U1': simpleRelay,
+    'SHPLG2-1': {
+      putPaths: simpleRelayPutPaths,
+      readPaths: meteringPlugReadPaths
+    },
+    'SHPLG-S': {
+      putPaths: simpleRelayPutPaths,
+      readPaths: [
+        ...meteringPlugReadPaths,
+        {
+          key: 'deviceTemperature',
+          converter: temperatureConverter
+        },
+        'overTemperature'
+      ]
+    },
+    'SHPLG-U1': {
+      putPaths: simpleRelayPutPaths,
+      readPaths: meteringPlugReadPaths
+    },
 
     'SHPLG-1': {
       putPaths: simpleRelayPutPaths,
-      readPaths: [
-        ...simpleRelayReadPaths,
-        'power0',
-        'energyCounter0',
-        'overPower',
-        'overPowerValue'
-      ]
+      readPaths: meteringPlugReadPaths
     },
 
     'SHDW-1': {
