@@ -17,6 +17,7 @@ Use this plugin for Gen 1 devices, for Gen 2+ devices, use https://github.com/sb
 - Shelly Color
 - Shelly HD
 - Shelly Plug
+- Shelly Plug E
 - Shelly Plug S
 - Shelly Plug US
 - Shelly Uni
